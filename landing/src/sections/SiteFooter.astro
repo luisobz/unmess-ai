@@ -9,12 +9,12 @@ const { copy } = Astro.props;
 <footer>
   <div class="wrap">
     <div class="foot-grid">
-      <a class="brand" href="#top" aria-label={SITE.name}>
+      <a class="brand" href="/#top" aria-label={SITE.name}>
         <BrandMark size={22} filled={false} />
         {SITE.name}
       </a>
       <nav class="foot-links" aria-label={copy.footDocs}>
-        <a href="#descargas" data-i18n="footDl">{copy.footDl}</a>
+        <a href="/#descargas" data-i18n="footDl">{copy.footDl}</a>
         <a href="/docs/" data-i18n="footDocs">{copy.footDocs}</a>
       </nav>
     </div>

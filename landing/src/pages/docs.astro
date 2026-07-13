@@ -30,7 +30,7 @@ const docs = DOCS[DEFAULT_LANG];
         docs.sections.map((sec) => (
           <section id={sec.id}>
             <h2 data-i18n-heading={sec.id}>{sec.title}</h2>
-            <div set:html={sec.html} />
+            <div data-i18n-section={sec.id} set:html={sec.html} />
           </section>
         ))
       }
@@ -57,6 +57,7 @@ const docs = DOCS[DEFAULT_LANG];
     position: sticky;
     top: 82px;
     align-self: start;
+    min-width: 0;
     font-size: .93rem;
   }
   .docs-toc strong {
@@ -74,6 +75,7 @@ const docs = DOCS[DEFAULT_LANG];
   }
   .docs-toc a:hover { color: var(--text); text-decoration: none; }
 
+  .docs-content { min-width: 0; }
   .docs-content h1 {
     font-size: 2.1rem;
     line-height: 1.15;
@@ -166,5 +168,8 @@ const docs = DOCS[DEFAULT_LANG];
   @media (max-width: 820px) {
     .docs-layout { grid-template-columns: 1fr; }
     .docs-toc { display: none; }
+    /* En pantallas estrechas dejamos que los comandos de las tablas rompan
+       línea en lugar de desbordar el ancho del viewport. */
+    .docs-content :global(td code) { white-space: normal; }
   }
 </style>

@@ -1,6 +1,16 @@
 // Contenido de la página de documentación en ES y EN. Cada sección tiene
 // un id (usado como ancla y para la tabla de contenidos), un título y el
 // cuerpo en HTML simple (se inyecta con `@html` en Astro).
+//
+// Los comandos de descarga/actualización se generan a partir de la versión
+// publicada (.version del repo) para que siempre apunten a la última release.
+
+import {
+  RELEASE_VERSION_RAW,
+  RELEASE_ASSETS_BASE,
+  RELEASES_URL,
+  ASSET_FILES as A,
+} from "@/consts/site";
 
 export interface DocSection {
   id: string;
@@ -15,6 +25,9 @@ export interface DocsPage {
   sections: DocSection[];
 }
 
+const V = RELEASE_VERSION_RAW; // p. ej. "0.2.0"
+const B = RELEASE_ASSETS_BASE; // base de descarga de la release actual
+
 export const DOCS: Record<"es" | "en", DocsPage> = {
   es: {
     pageTitle: "Documentación",
@@ -22,25 +35,41 @@ export const DOCS: Record<"es" | "en", DocsPage> = {
     tocLabel: "Contenido",
     sections: [
       {
-        id: "que-es",
+        id: "what",
         title: "Qué es unmessai",
-        html: `<p>unmessai versiona en segundo plano cada cambio relevante en tus archivos —fuera de tus repositorios git— y te deja restaurar cualquier versión anterior. Protege frente a borrados o modificaciones accidentales, incluidos los provocados por un agente de IA operando sobre tu sistema de archivos. Todo se guarda en tu equipo: sin nube.</p>`,
+        html: `<p>unmessai versiona en segundo plano cada cambio relevante en tus archivos —fuera de tus repositorios git— y te deja restaurar cualquier versión anterior. Protege frente a borrados o modificaciones accidentales, incluidos los provocados por un agente de IA operando sobre tu sistema de archivos. Todo se guarda en tu equipo: sin nube.</p>
+<p>Se distribuye en tres piezas: el CLI <code>unmess</code>, el daemon <code>unmessd</code> (vigila y versiona) y la app nativa <code>unmess-app</code> (bandeja del sistema y ventana propia, incluida en el paquete de Linux).</p>`,
       },
       {
-        id: "instalacion",
+        id: "install",
         title: "Instalación",
-        html: `<p>Descarga el paquete para tu sistema desde la <a href="/#descargas">página principal</a> y sigue estos pasos.</p>
+        html: `<p>Descarga el paquete para tu sistema desde la <a href="/#descargas">página principal</a> o desde la terminal. Los comandos usan la última versión publicada, <code>${V}</code>.</p>
 <h3>Linux (Debian / Ubuntu)</h3>
-<pre><code>sudo apt install ./unmessai_0.1.0_amd64.deb</code></pre>
+<p>El <code>.deb</code> instala el CLI, el daemon y la app nativa (icono en la bandeja y ventana propia), y configura el autoarranque.</p>
+<pre><code>curl -LO ${B}/${A.deb}
+sudo apt install ./${A.deb}</code></pre>
 <p>La app aparece en el lanzador como <strong>unmessai</strong> y se inicia con la sesión, mostrando su icono en la barra superior. También puedes abrirla con <code>unmess ui</code>.</p>
+<h3>Linux (otras distros · binarios)</h3>
+<p>Descarga el <code>.tar.gz</code>, extráelo y copia los binarios al <code>PATH</code>. La app con ventana solo se compila para el <code>.deb</code>; con el tarball usas el CLI y la interfaz web local.</p>
+<pre><code>curl -LO ${B}/${A.linuxTar}
+tar -xzf ${A.linuxTar}
+sudo install unmess unmessd /usr/local/bin/</code></pre>
 <h3>macOS</h3>
-<p>Descomprime el <code>.tar.gz</code> (Apple Silicon o Intel según tu Mac) y ejecuta la app. Para vigilar carpetas arbitrarias, macOS pide conceder <strong>Acceso Total al Disco</strong> a unmessai en <em>Ajustes del Sistema → Privacidad y Seguridad</em>.</p>
+<p>Descarga el <code>.tar.gz</code> de tu chip (Apple Silicon o Intel), extráelo e instala los binarios:</p>
+<pre><code>curl -LO ${B}/${A.macArmTar}   # Intel: ${A.macIntelTar}
+tar -xzf ${A.macArmTar}
+sudo install unmess unmessd /usr/local/bin/</code></pre>
+<p>Para vigilar carpetas arbitrarias, macOS pide conceder <strong>Acceso Total al Disco</strong> a <code>unmessd</code> en <em>Ajustes del Sistema → Privacidad y Seguridad</em>. Arranca el daemon con <code>unmess service install</code> y abre la interfaz con <code>unmess ui --browser</code>.</p>
 <h3>Windows</h3>
-<p>Descomprime el <code>.zip</code> y ejecuta <code>unmess-app.exe</code>. La app se coloca en la bandeja del sistema y puede iniciarse al arrancar sesión.</p>
+<p>Descarga el <code>.zip</code>, descomprímelo (Windows 10/11 traen <code>curl</code> y <code>tar</code>) y ejecuta desde la carpeta <code>windows-amd64\\</code>:</p>
+<pre><code>curl -LO ${B}/${A.winZip}
+tar -xf ${A.winZip}
+windows-amd64\\unmess.exe service install
+windows-amd64\\unmess.exe ui --browser</code></pre>
 <div class="note"><strong>Nota:</strong> la primera vez, unmessai crea su configuración por defecto y empieza a proteger tu carpeta personal (excluyendo Descargas, Vídeos, Música, <code>node_modules</code>, etc.).</div>`,
       },
       {
-        id: "como-funciona",
+        id: "how",
         title: "Cómo funciona",
         html: `<ol>
 <li><strong>Vigila</strong> tu carpeta personal con la API nativa del sistema de archivos.</li>
@@ -53,16 +82,17 @@ export const DOCS: Record<"es" | "en", DocsPage> = {
       {
         id: "app",
         title: "La app nativa",
-        html: `<p>unmessai se integra como una aplicación nativa de tu sistema:</p>
+        html: `<p>En Linux (paquete <code>.deb</code>), unmessai se integra como una aplicación nativa de tu sistema:</p>
 <div class="cards">
 <div class="card"><h3>Icono en la bandeja</h3><p>Menú para abrir la ventana, pausar/reanudar la protección y salir. El icono cambia a ámbar cuando está en pausa.</p></div>
 <div class="card"><h3>Ventana propia</h3><p>La interfaz se abre en su propia ventana (no en el navegador), con búsqueda, historial, diff y restauración.</p></div>
 <div class="card"><h3>Notificaciones</h3><p>Avisos del sistema cuando se guarda una versión, se completa una restauración o hay un error.</p></div>
 </div>
-<p><strong>Pausar</strong> detiene el versionado (por ejemplo, durante una operación masiva de archivos); mientras está en pausa, los cambios no se guardan. Reanudar vuelve a proteger.</p>`,
+<p><strong>Pausar</strong> detiene el versionado (por ejemplo, durante una operación masiva de archivos); mientras está en pausa, los cambios no se guardan. Reanudar vuelve a proteger.</p>
+<p>En macOS, Windows o instalaciones por tarball usas la misma interfaz en el navegador con <code>unmess ui --browser</code>, que se sirve en local (<code>127.0.0.1</code>).</p>`,
       },
       {
-        id: "restaurar",
+        id: "restore",
         title: "Restaurar una versión",
         html: `<p>Restaurar <strong>nunca es destructivo</strong>: antes de sobrescribir, unmessai guarda una copia de seguridad del estado actual como una versión nueva.</p>
 <h3>Desde la app</h3>
@@ -76,33 +106,97 @@ unmess restore ruta/al/fichero.txt --version v2026-07-12-11-44.txt</code></pre>`
       {
         id: "cli",
         title: "CLI de referencia",
-        html: `<table>
+        html: `<p>Todos los comandos aceptan la opción global <code>--config &lt;ruta&gt;</code> para usar un <code>config.toml</code> alternativo, y <code>unmess --help</code> imprime el resumen de uso.</p>
+<table>
 <tr><th>Comando</th><th>Qué hace</th></tr>
-<tr><td><code>unmess status</code></td><td>Estado del daemon y del store.</td></tr>
-<tr><td><code>unmess ls</code></td><td>Lista los ficheros versionados (<code>--modified</code>, <code>--deleted</code>).</td></tr>
-<tr><td><code>unmess versions &lt;ruta&gt;</code></td><td>Versiones de un fichero.</td></tr>
-<tr><td><code>unmess diff &lt;ruta&gt;</code></td><td>Diferencias entre versiones.</td></tr>
-<tr><td><code>unmess restore &lt;ruta&gt;</code></td><td>Restaura una versión (guardando copia de seguridad).</td></tr>
-<tr><td><code>unmess prune</code></td><td>Aplica la retención (<code>--dry-run</code> para simular).</td></tr>
-<tr><td><code>unmess config</code></td><td>Muestra o edita la configuración.</td></tr>
-<tr><td><code>unmess ui [ruta]</code></td><td>Abre la app nativa (<code>--browser</code> para el navegador).</td></tr>
-<tr><td><code>unmess service install</code></td><td>Autoarranque del daemon sin interfaz (servidores).</td></tr>
-</table>`,
+<tr><td><code>unmess status</code></td><td>Estado del daemon y del store (ficheros, versiones, tamaño, debounce).</td></tr>
+<tr><td><code>unmess ls [texto]</code></td><td>Lista los ficheros versionados. Flags: <code>--modified</code>, <code>--deleted</code> (excluyentes); <code>texto</code> filtra por subcadena de la ruta.</td></tr>
+<tr><td><code>unmess versions &lt;ruta&gt;</code></td><td>Versiones de un fichero, con fecha y tamaño.</td></tr>
+<tr><td><code>unmess diff &lt;ruta&gt;</code></td><td>Diferencias entre versiones. Flags: <code>--from &lt;v&gt;</code>, <code>--to &lt;v|current&gt;</code>. Por defecto compara la última con la anterior; <code>--to current</code> compara con el fichero en disco.</td></tr>
+<tr><td><code>unmess restore &lt;ruta&gt;</code></td><td>Restaura una versión (guardando copia de seguridad). Flags: <code>--version &lt;v&gt;</code>, <code>--yes</code>/<code>-y</code> (sin confirmación).</td></tr>
+<tr><td><code>unmess prune</code></td><td>Aplica la retención. Flag: <code>--dry-run</code> (simula sin borrar).</td></tr>
+<tr><td><code>unmess config</code></td><td>Muestra o edita la config: <code>config</code>, <code>config path</code>, <code>config get &lt;clave&gt;</code>, <code>config set &lt;clave&gt; &lt;valor&gt;</code>.</td></tr>
+<tr><td><code>unmess ui [ruta]</code></td><td>Abre la app nativa (o el fichero indicado). Flag: <code>--browser</code> fuerza la interfaz web.</td></tr>
+<tr><td><code>unmess service &lt;acción&gt;</code></td><td>Gestiona el daemon como servicio: <code>install</code>, <code>uninstall</code>, <code>start</code>, <code>stop</code>, <code>status</code>.</td></tr>
+</table>
+<h3>Ejemplos</h3>
+<pre><code># Estado y espacio ocupado por el store
+unmess status
+
+# Solo ficheros borrados que aún puedes recuperar
+unmess ls --deleted
+
+# Historial de un fichero y comparación con el estado actual en disco
+unmess versions notas.md
+unmess diff notas.md --to current
+
+# Restaurar una versión concreta sin confirmación
+unmess restore notas.md --version v2026-07-12-11-44.txt --yes
+
+# Simular la poda por retención antes de aplicarla
+unmess prune --dry-run
+
+# Usar una configuración alternativa
+unmess --config /ruta/config.toml status</code></pre>`,
+      },
+      {
+        id: "updates",
+        title: "Actualizaciones",
+        html: `<p>unmessai no se actualiza solo: descargas la nueva versión y reemplazas los binarios. Tu store (<code>~/UnmessaiBackups</code>) y tu <code>config.toml</code> se conservan intactos. La última versión es <code>${V}</code> (<a href="${RELEASES_URL}">ver releases</a>).</p>
+<h3>Linux (.deb)</h3>
+<p>Instala el nuevo paquete encima; apt actualiza los binarios y reinicia el daemon automáticamente.</p>
+<pre><code>curl -LO ${B}/${A.deb}
+sudo apt install ./${A.deb}</code></pre>
+<h3>Binarios (tar.gz / zip)</h3>
+<p>Para el resto de plataformas, detén el daemon, sustituye los binarios y arráncalo de nuevo:</p>
+<pre><code>unmess service stop
+curl -LO ${B}/${A.linuxTar}
+tar -xzf ${A.linuxTar}
+sudo install unmess unmessd /usr/local/bin/
+unmess service start</code></pre>
+<div class="note"><strong>Compatibilidad:</strong> las versiones nuevas leen los stores y configuraciones existentes, así que actualizar no pierde historial. Ante cualquier duda, <code>unmess status</code> confirma que el daemon vuelve a estar activo tras la actualización.</div>`,
+      },
+      {
+        id: "server",
+        title: "Servidores y headless",
+        html: `<p>En un servidor sin escritorio no necesitas la app nativa: bastan el CLI (<code>unmess</code>) y el daemon (<code>unmessd</code>). El daemon vigila y versiona; el CLI consulta y restaura.</p>
+<h3>1. Instalar los binarios</h3>
+<pre><code>curl -LO ${B}/${A.linuxTar}
+tar -xzf ${A.linuxTar}
+sudo install unmess unmessd /usr/local/bin/</code></pre>
+<h3>2. Arrancar el daemon como servicio</h3>
+<p><code>unmess service install</code> registra <code>unmessd</code> como servicio de usuario de systemd (<code>~/.config/systemd/user/unmessai.service</code>) y lo arranca:</p>
+<pre><code>unmess service install     # instala y arranca
+unmess service status      # activo / inactivo
+unmess service stop        # detener
+unmess service uninstall   # quitar</code></pre>
+<div class="note"><strong>Sesiones headless:</strong> para que el servicio de usuario siga corriendo sin sesión iniciada, habilita el <em>lingering</em> con <code>sudo loginctl enable-linger $USER</code>.</div>
+<h3>3. Configurar qué se vigila</h3>
+<p>Ajusta las carpetas y la retención por CLI, sin abrir un editor (las listas van separadas por comas):</p>
+<pre><code>unmess config set included_paths "/srv/datos,/etc"
+unmess config set debounce_seconds 10
+unmess config set retention.max_versions 50
+unmess config                              # ver la config efectiva</code></pre>
+<h3>4. Consultar y restaurar</h3>
+<p>Usa los comandos habituales desde el propio servidor (<code>unmess status</code>, <code>unmess ls</code>, <code>unmess versions</code>, <code>unmess restore</code>). Si necesitas la interfaz web, <code>unmess ui --browser</code> imprime la URL local; en un servidor remoto ábrela por un túnel SSH (<code>ssh -L 48111:127.0.0.1:48111 servidor</code>) — nunca la expongas directamente a la red.</p>`,
       },
       {
         id: "config",
         title: "Configuración",
-        html: `<p>La configuración vive en <code>config.toml</code> (en <code>~/.config/unmessai/</code> en Linux, <code>%APPDATA%\\unmessai\\</code> en Windows). Puedes editarla desde <em>Ajustes</em> en la app o con <code>unmess config</code>. Ajustes principales:</p>
+        html: `<p>La configuración vive en <code>config.toml</code> (en <code>~/.config/unmessai/</code> en Linux, <code>%APPDATA%\\unmessai\\</code> en Windows). Puedes editarla desde <em>Ajustes</em> en la app o con <code>unmess config set</code>. Ajustes principales:</p>
 <table>
 <tr><th>Clave</th><th>Descripción</th></tr>
 <tr><td><code>debounce_seconds</code></td><td>Tiempo de agrupación antes de guardar una versión.</td></tr>
 <tr><td><code>included_paths</code> / <code>excluded_paths</code></td><td>Qué carpetas vigilar o excluir.</td></tr>
 <tr><td><code>exclude_names</code></td><td>Nombres a ignorar (<code>.git</code>, <code>node_modules</code>…).</td></tr>
+<tr><td><code>gitignore_aware</code></td><td>Respeta los <code>.gitignore</code> al decidir qué versionar.</td></tr>
+<tr><td><code>max_file_size_mb</code></td><td>Tamaño máximo por fichero para versionar.</td></tr>
 <tr><td><code>retention</code></td><td>Máximo de versiones/días y mínimo a conservar.</td></tr>
+<tr><td><code>ui.port</code></td><td>Puerto de la interfaz local en <code>127.0.0.1</code>.</td></tr>
 </table>`,
       },
       {
-        id: "privacidad",
+        id: "privacy",
         title: "Privacidad",
         html: `<p>Local-first: tus datos <strong>no salen de tu equipo</strong>. Sin nube salvo que tú lo configures explícitamente. La interfaz se sirve solo en <code>127.0.0.1</code> y nunca se expone a la red.</p>`,
       },
@@ -116,19 +210,35 @@ unmess restore ruta/al/fichero.txt --version v2026-07-12-11-44.txt</code></pre>`
       {
         id: "what",
         title: "What unmessai is",
-        html: `<p>unmessai versions every meaningful change to your files in the background —outside your git repositories— and lets you restore any earlier version. It protects against accidental deletions or edits, including those made by an AI agent operating on your file system. Everything stays on your machine: no cloud.</p>`,
+        html: `<p>unmessai versions every meaningful change to your files in the background —outside your git repositories— and lets you restore any earlier version. It protects against accidental deletions or edits, including those made by an AI agent operating on your file system. Everything stays on your machine: no cloud.</p>
+<p>It ships as three pieces: the <code>unmess</code> CLI, the <code>unmessd</code> daemon (watches and versions), and the <code>unmess-app</code> native app (system tray and its own window, included in the Linux package).</p>`,
       },
       {
         id: "install",
         title: "Installation",
-        html: `<p>Download the package for your system from the <a href="/#descargas">home page</a> and follow these steps.</p>
+        html: `<p>Download the package for your system from the <a href="/#descargas">home page</a> or from the terminal. The commands use the latest published version, <code>${V}</code>.</p>
 <h3>Linux (Debian / Ubuntu)</h3>
-<pre><code>sudo apt install ./unmessai_0.1.0_amd64.deb</code></pre>
+<p>The <code>.deb</code> installs the CLI, the daemon and the native app (tray icon and its own window), and sets up autostart.</p>
+<pre><code>curl -LO ${B}/${A.deb}
+sudo apt install ./${A.deb}</code></pre>
 <p>The app appears in the launcher as <strong>unmessai</strong> and starts with your session, showing its icon in the top bar. You can also open it with <code>unmess ui</code>.</p>
+<h3>Linux (other distros · binaries)</h3>
+<p>Download the <code>.tar.gz</code>, extract it and copy the binaries onto your <code>PATH</code>. The windowed app is only built for the <code>.deb</code>; with the tarball you use the CLI and the local web interface.</p>
+<pre><code>curl -LO ${B}/${A.linuxTar}
+tar -xzf ${A.linuxTar}
+sudo install unmess unmessd /usr/local/bin/</code></pre>
 <h3>macOS</h3>
-<p>Unpack the <code>.tar.gz</code> (Apple Silicon or Intel, matching your Mac) and run the app. To watch arbitrary folders, macOS asks you to grant <strong>Full Disk Access</strong> to unmessai in <em>System Settings → Privacy &amp; Security</em>.</p>
+<p>Download the <code>.tar.gz</code> for your chip (Apple Silicon or Intel), extract it and install the binaries:</p>
+<pre><code>curl -LO ${B}/${A.macArmTar}   # Intel: ${A.macIntelTar}
+tar -xzf ${A.macArmTar}
+sudo install unmess unmessd /usr/local/bin/</code></pre>
+<p>To watch arbitrary folders, macOS asks you to grant <strong>Full Disk Access</strong> to <code>unmessd</code> in <em>System Settings → Privacy &amp; Security</em>. Start the daemon with <code>unmess service install</code> and open the interface with <code>unmess ui --browser</code>.</p>
 <h3>Windows</h3>
-<p>Unzip the <code>.zip</code> and run <code>unmess-app.exe</code>. The app sits in the system tray and can start at login.</p>
+<p>Download the <code>.zip</code>, unpack it (Windows 10/11 ship <code>curl</code> and <code>tar</code>) and run from the <code>windows-amd64\\</code> folder:</p>
+<pre><code>curl -LO ${B}/${A.winZip}
+tar -xf ${A.winZip}
+windows-amd64\\unmess.exe service install
+windows-amd64\\unmess.exe ui --browser</code></pre>
 <div class="note"><strong>Note:</strong> on first run, unmessai creates its default configuration and starts protecting your home folder (excluding Downloads, Videos, Music, <code>node_modules</code>, etc.).</div>`,
       },
       {
@@ -145,13 +255,14 @@ unmess restore ruta/al/fichero.txt --version v2026-07-12-11-44.txt</code></pre>`
       {
         id: "app",
         title: "The native app",
-        html: `<p>unmessai integrates as a native application on your system:</p>
+        html: `<p>On Linux (the <code>.deb</code> package), unmessai integrates as a native application on your system:</p>
 <div class="cards">
 <div class="card"><h3>Tray icon</h3><p>A menu to open the window, pause/resume protection and quit. The icon turns amber while paused.</p></div>
 <div class="card"><h3>Its own window</h3><p>The interface opens in its own window (not the browser), with search, history, diff and restore.</p></div>
 <div class="card"><h3>Notifications</h3><p>System alerts when a version is saved, a restore completes, or an error occurs.</p></div>
 </div>
-<p><strong>Pausing</strong> stops versioning (e.g. during a bulk file operation); while paused, changes are not saved. Resuming protects again.</p>`,
+<p><strong>Pausing</strong> stops versioning (e.g. during a bulk file operation); while paused, changes are not saved. Resuming protects again.</p>
+<p>On macOS, Windows or tarball installs you get the same interface in the browser via <code>unmess ui --browser</code>, served locally on <code>127.0.0.1</code>.</p>`,
       },
       {
         id: "restore",
@@ -168,29 +279,93 @@ unmess restore path/to/file.txt --version v2026-07-12-11-44.txt</code></pre>`,
       {
         id: "cli",
         title: "CLI reference",
-        html: `<table>
+        html: `<p>Every command accepts the global <code>--config &lt;path&gt;</code> option to use an alternative <code>config.toml</code>, and <code>unmess --help</code> prints the usage summary.</p>
+<table>
 <tr><th>Command</th><th>What it does</th></tr>
-<tr><td><code>unmess status</code></td><td>Daemon and store status.</td></tr>
-<tr><td><code>unmess ls</code></td><td>List versioned files (<code>--modified</code>, <code>--deleted</code>).</td></tr>
-<tr><td><code>unmess versions &lt;path&gt;</code></td><td>Versions of a file.</td></tr>
-<tr><td><code>unmess diff &lt;path&gt;</code></td><td>Differences between versions.</td></tr>
-<tr><td><code>unmess restore &lt;path&gt;</code></td><td>Restore a version (saving a backup first).</td></tr>
-<tr><td><code>unmess prune</code></td><td>Apply retention (<code>--dry-run</code> to simulate).</td></tr>
-<tr><td><code>unmess config</code></td><td>Show or edit the configuration.</td></tr>
-<tr><td><code>unmess ui [path]</code></td><td>Open the native app (<code>--browser</code> for the browser).</td></tr>
-<tr><td><code>unmess service install</code></td><td>Autostart the headless daemon (servers).</td></tr>
-</table>`,
+<tr><td><code>unmess status</code></td><td>Daemon and store status (files, versions, size, debounce).</td></tr>
+<tr><td><code>unmess ls [text]</code></td><td>List versioned files. Flags: <code>--modified</code>, <code>--deleted</code> (mutually exclusive); <code>text</code> filters by path substring.</td></tr>
+<tr><td><code>unmess versions &lt;path&gt;</code></td><td>Versions of a file, with date and size.</td></tr>
+<tr><td><code>unmess diff &lt;path&gt;</code></td><td>Differences between versions. Flags: <code>--from &lt;v&gt;</code>, <code>--to &lt;v|current&gt;</code>. Defaults to latest vs previous; <code>--to current</code> compares against the file on disk.</td></tr>
+<tr><td><code>unmess restore &lt;path&gt;</code></td><td>Restore a version (saving a backup first). Flags: <code>--version &lt;v&gt;</code>, <code>--yes</code>/<code>-y</code> (no confirmation).</td></tr>
+<tr><td><code>unmess prune</code></td><td>Apply retention. Flag: <code>--dry-run</code> (simulate without deleting).</td></tr>
+<tr><td><code>unmess config</code></td><td>Show or edit the config: <code>config</code>, <code>config path</code>, <code>config get &lt;key&gt;</code>, <code>config set &lt;key&gt; &lt;value&gt;</code>.</td></tr>
+<tr><td><code>unmess ui [path]</code></td><td>Open the native app (or the given file). Flag: <code>--browser</code> forces the web interface.</td></tr>
+<tr><td><code>unmess service &lt;action&gt;</code></td><td>Manage the daemon as a service: <code>install</code>, <code>uninstall</code>, <code>start</code>, <code>stop</code>, <code>status</code>.</td></tr>
+</table>
+<h3>Examples</h3>
+<pre><code># Status and space used by the store
+unmess status
+
+# Only deleted files you can still recover
+unmess ls --deleted
+
+# A file's history and a comparison with the current on-disk state
+unmess versions notes.md
+unmess diff notes.md --to current
+
+# Restore a specific version without confirmation
+unmess restore notes.md --version v2026-07-12-11-44.txt --yes
+
+# Simulate retention pruning before applying it
+unmess prune --dry-run
+
+# Use an alternative configuration
+unmess --config /path/config.toml status</code></pre>`,
+      },
+      {
+        id: "updates",
+        title: "Updates",
+        html: `<p>unmessai does not update itself: you download the new version and replace the binaries. Your store (<code>~/UnmessaiBackups</code>) and your <code>config.toml</code> stay untouched. The latest version is <code>${V}</code> (<a href="${RELEASES_URL}">see releases</a>).</p>
+<h3>Linux (.deb)</h3>
+<p>Install the new package on top; apt updates the binaries and restarts the daemon automatically.</p>
+<pre><code>curl -LO ${B}/${A.deb}
+sudo apt install ./${A.deb}</code></pre>
+<h3>Binaries (tar.gz / zip)</h3>
+<p>On other platforms, stop the daemon, replace the binaries and start it again:</p>
+<pre><code>unmess service stop
+curl -LO ${B}/${A.linuxTar}
+tar -xzf ${A.linuxTar}
+sudo install unmess unmessd /usr/local/bin/
+unmess service start</code></pre>
+<div class="note"><strong>Compatibility:</strong> newer versions read existing stores and configs, so updating never loses history. If in doubt, <code>unmess status</code> confirms the daemon is active again after the update.</div>`,
+      },
+      {
+        id: "server",
+        title: "Servers & headless",
+        html: `<p>On a server with no desktop you don't need the native app: the CLI (<code>unmess</code>) and the daemon (<code>unmessd</code>) are enough. The daemon watches and versions; the CLI queries and restores.</p>
+<h3>1. Install the binaries</h3>
+<pre><code>curl -LO ${B}/${A.linuxTar}
+tar -xzf ${A.linuxTar}
+sudo install unmess unmessd /usr/local/bin/</code></pre>
+<h3>2. Run the daemon as a service</h3>
+<p><code>unmess service install</code> registers <code>unmessd</code> as a systemd user service (<code>~/.config/systemd/user/unmessai.service</code>) and starts it:</p>
+<pre><code>unmess service install     # install and start
+unmess service status      # active / inactive
+unmess service stop        # stop
+unmess service uninstall   # remove</code></pre>
+<div class="note"><strong>Headless sessions:</strong> to keep the user service running without an active login, enable <em>lingering</em> with <code>sudo loginctl enable-linger $USER</code>.</div>
+<h3>3. Configure what gets watched</h3>
+<p>Set folders and retention from the CLI, no editor needed (lists are comma-separated):</p>
+<pre><code>unmess config set included_paths "/srv/data,/etc"
+unmess config set debounce_seconds 10
+unmess config set retention.max_versions 50
+unmess config                              # show the effective config</code></pre>
+<h3>4. Query and restore</h3>
+<p>Use the usual commands from the server itself (<code>unmess status</code>, <code>unmess ls</code>, <code>unmess versions</code>, <code>unmess restore</code>). If you need the web interface, <code>unmess ui --browser</code> prints the local URL; on a remote server open it over an SSH tunnel (<code>ssh -L 48111:127.0.0.1:48111 server</code>) — never expose it directly to the network.</p>`,
       },
       {
         id: "config",
         title: "Configuration",
-        html: `<p>The configuration lives in <code>config.toml</code> (in <code>~/.config/unmessai/</code> on Linux, <code>%APPDATA%\\unmessai\\</code> on Windows). Edit it from <em>Settings</em> in the app or with <code>unmess config</code>. Main settings:</p>
+        html: `<p>The configuration lives in <code>config.toml</code> (in <code>~/.config/unmessai/</code> on Linux, <code>%APPDATA%\\unmessai\\</code> on Windows). Edit it from <em>Settings</em> in the app or with <code>unmess config set</code>. Main settings:</p>
 <table>
 <tr><th>Key</th><th>Description</th></tr>
 <tr><td><code>debounce_seconds</code></td><td>Coalescing time before a version is saved.</td></tr>
 <tr><td><code>included_paths</code> / <code>excluded_paths</code></td><td>Which folders to watch or exclude.</td></tr>
 <tr><td><code>exclude_names</code></td><td>Names to ignore (<code>.git</code>, <code>node_modules</code>…).</td></tr>
+<tr><td><code>gitignore_aware</code></td><td>Respect <code>.gitignore</code> files when deciding what to version.</td></tr>
+<tr><td><code>max_file_size_mb</code></td><td>Maximum per-file size to version.</td></tr>
 <tr><td><code>retention</code></td><td>Max versions/days and minimum to keep.</td></tr>
+<tr><td><code>ui.port</code></td><td>Port of the local interface on <code>127.0.0.1</code>.</td></tr>
 </table>`,
       },
       {
