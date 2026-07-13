@@ -22,12 +22,12 @@ export const DOCS: Record<"es" | "en", DocsPage> = {
     tocLabel: "Contenido",
     sections: [
       {
-        id: "que-es",
+        id: "what",
         title: "Qué es unmessai",
         html: `<p>unmessai versiona en segundo plano cada cambio relevante en tus archivos —fuera de tus repositorios git— y te deja restaurar cualquier versión anterior. Protege frente a borrados o modificaciones accidentales, incluidos los provocados por un agente de IA operando sobre tu sistema de archivos. Todo se guarda en tu equipo: sin nube.</p>`,
       },
       {
-        id: "instalacion",
+        id: "install",
         title: "Instalación",
         html: `<p>Descarga el paquete para tu sistema desde la <a href="/#descargas">página principal</a> y sigue estos pasos.</p>
 <h3>Linux (Debian / Ubuntu)</h3>
@@ -40,7 +40,7 @@ export const DOCS: Record<"es" | "en", DocsPage> = {
 <div class="note"><strong>Nota:</strong> la primera vez, unmessai crea su configuración por defecto y empieza a proteger tu carpeta personal (excluyendo Descargas, Vídeos, Música, <code>node_modules</code>, etc.).</div>`,
       },
       {
-        id: "como-funciona",
+        id: "how",
         title: "Cómo funciona",
         html: `<ol>
 <li><strong>Vigila</strong> tu carpeta personal con la API nativa del sistema de archivos.</li>
@@ -62,7 +62,7 @@ export const DOCS: Record<"es" | "en", DocsPage> = {
 <p><strong>Pausar</strong> detiene el versionado (por ejemplo, durante una operación masiva de archivos); mientras está en pausa, los cambios no se guardan. Reanudar vuelve a proteger.</p>`,
       },
       {
-        id: "restaurar",
+        id: "restore",
         title: "Restaurar una versión",
         html: `<p>Restaurar <strong>nunca es destructivo</strong>: antes de sobrescribir, unmessai guarda una copia de seguridad del estado actual como una versión nueva.</p>
 <h3>Desde la app</h3>
@@ -102,7 +102,7 @@ unmess restore ruta/al/fichero.txt --version v2026-07-12-11-44.txt</code></pre>`
 </table>`,
       },
       {
-        id: "privacidad",
+        id: "privacy",
         title: "Privacidad",
         html: `<p>Local-first: tus datos <strong>no salen de tu equipo</strong>. Sin nube salvo que tú lo configures explícitamente. La interfaz se sirve solo en <code>127.0.0.1</code> y nunca se expone a la red.</p>`,
       },
