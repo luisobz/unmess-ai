@@ -19,6 +19,8 @@ declare const __UNMESSAI_VERSION__: string;
 export const RELEASE_VERSION_RAW: string = __UNMESSAI_VERSION_RAW__;
 export const RELEASE_VERSION: string = __UNMESSAI_VERSION__;
 const REL = `https://github.com/luisobz/unmess-ai/releases/download/${RELEASE_VERSION}`;
+/** Base de descarga de los artefactos de la release actual (sin barra final). */
+export const RELEASE_ASSETS_BASE = REL;
 export const RELEASES_URL = "https://github.com/luisobz/unmess-ai/releases/latest";
 
 export interface Download {
@@ -32,6 +34,17 @@ export interface Download {
 }
 
 const V = RELEASE_VERSION_RAW;
+
+/** Nombres de fichero de los artefactos publicados para la versión actual.
+ *  Coinciden con lo que produce .github/workflows/release.yml. */
+export const ASSET_FILES = {
+  deb: `unmessai_${V}_amd64.deb`,
+  linuxTar: `unmessai-${RELEASE_VERSION}-linux-amd64.tar.gz`,
+  macArmTar: `unmessai-${RELEASE_VERSION}-darwin-arm64.tar.gz`,
+  macIntelTar: `unmessai-${RELEASE_VERSION}-darwin-amd64.tar.gz`,
+  winZip: `unmessai-${RELEASE_VERSION}-windows-amd64.zip`,
+} as const;
+
 export const DOWNLOADS: Download[] = [
   {
     os: "linux", name: "Linux", fmt: "Debian / Ubuntu · .deb", ctaKey: "dlLinux",
