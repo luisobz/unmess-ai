@@ -1,0 +1,64 @@
+name: Deploy landing
+
+# Despliega la landing al taggear landing-vX.Y.Z.
+# También se puede lanzar a mano desde Actions.
+#
+# Secrets:  SSH_HOST, SSH_USER, SSH_KEY
+# Variables: SSH_PORT (def. 22), LANDING_PATH
+
+on:
+  push:
+    tags:
+      - 'landing-v*'
+  workflow_dispatch:
+
+concurrency:
+  group: landing-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SSH_PORT: ${{ vars.SSH_PORT || '22' }}
+
+jobs:
+  landing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Guard — secrets configurados
+        run: |
+          test -n "${{ secrets.SSH_HOST }}" || { echo "::error::Falta el secret SSH_HOST"; exit 1; }
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: landing/pnpm-lock.yaml
+
+      - name: Instalar dependencias
+        working-directory: landing
+        run: pnpm install --frozen-lockfile
+
+      - name: Build landing
+        working-directory: landing
+        run: pnpm build
+
+      - name: Configurar SSH
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -p "${SSH_PORT}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Subir landing (rsync)
+        env:
+          HOST: ${{ secrets.SSH_HOST }}
+          USER: ${{ secrets.SSH_USER }}
+          DEST: ${{ vars.LANDING_PATH }}
+        run: |
+          SSH="ssh -i ~/.ssh/id_deploy -p ${SSH_PORT} -o StrictHostKeyChecking=accept-new"
+          rsync -az --delete -e "$SSH" landing/dist/_astro/ "$USER@$HOST:$DEST/_astro/"
+          rsync -az -e "$SSH" --exclude '_astro/' landing/dist/ "$USER@$HOST:$DEST/"

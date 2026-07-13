@@ -1,0 +1,33 @@
+# Prevent directory listing
+Options -Indexes
+
+# Default charset
+AddDefaultCharset UTF-8
+
+# Cache: long for hashed assets, short for HTML
+<FilesMatch "\.(html|xml)$">
+  Header set Cache-Control "no-cache, must-revalidate"
+</FilesMatch>
+
+<FilesMatch "\.(js|css|svg|woff2)$">
+  Header set Cache-Control "public, max-age=31536000, immutable"
+</FilesMatch>
+
+# Block access to dotfiles
+<FilesMatch "^\.">
+  Require all denied
+</FilesMatch>
+
+# Redirect /page/index.html → /page
+RewriteEngine On
+RewriteCond %{THE_REQUEST} /index\.html
+RewriteRule ^(.*)/index\.html$ /$1 [R=301,L]
+
+# Serve clean URLs (exclude existing files and dirs)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}.html -f
+RewriteRule ^(.+)$ $1.html [L]
+
+# Error page
+ErrorDocument 404 /404.html

@@ -1,0 +1,35 @@
+---
+import type { Copy } from "@/consts/i18n";
+import { SITE } from "@/consts/site";
+import BrandMark from "@/components/BrandMark.astro";
+import LangToggle from "@/components/LangToggle.astro";
+import ThemeToggle from "@/components/ThemeToggle.astro";
+
+interface Props { copy: Copy }
+const { copy } = Astro.props;
+---
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="#top" aria-label={SITE.name}>
+      <BrandMark size={26} />
+      {SITE.name}
+    </a>
+    <div class="controls">
+      <LangToggle label={copy.langLabel} />
+      <ThemeToggle label={copy.themeLabel} />
+    </div>
+  </div>
+</header>
+
+<style>
+  header {
+    position: sticky; top: 0; z-index: 50;
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    backdrop-filter: saturate(1.4) blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 62px; }
+  .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.12rem; color: var(--text); letter-spacing: -0.02em; }
+  .brand:hover { text-decoration: none; }
+  .controls { display: flex; align-items: center; gap: 8px; }
+</style>

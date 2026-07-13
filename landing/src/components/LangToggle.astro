@@ -1,0 +1,30 @@
+---
+// Selector de idioma ES/EN. El estado inicial lo pinta el servidor (idioma por
+// defecto) y el cambio en vivo lo maneja el script de cliente (scripts/client.ts),
+// que también persiste la preferencia.
+import { LANGS, DEFAULT_LANG } from "@/consts/i18n";
+import { LANG_LABELS } from "@/consts/site";
+
+interface Props { label: string }
+const { label } = Astro.props;
+---
+<div class="seg" role="group" aria-label={label} data-lang-group>
+  {LANGS.map((lang) => (
+    <button type="button" data-lang={lang} aria-pressed={lang === DEFAULT_LANG}>
+      {LANG_LABELS[lang]}
+    </button>
+  ))}
+</div>
+
+<style>
+  .seg {
+    display: inline-flex; background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 3px;
+  }
+  .seg button {
+    font: inherit; font-size: 0.82rem; font-weight: 600; line-height: 1;
+    border: 0; background: transparent; color: var(--text-muted);
+    padding: 7px 11px; border-radius: 2px; cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+</style>

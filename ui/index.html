@@ -1,0 +1,309 @@
+<title>unmessai — historial de versiones</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="/icon.svg" />
+<link rel="stylesheet" href="/styles.css" />
+
+<a class="skip-link" href="#main" data-i18n="skip_to_content">Saltar al contenido</a>
+
+<header class="topbar">
+  <div class="brand">
+    <img class="logo" src="/icon.svg" alt="" width="26" height="26" />
+    <h1>unmessai</h1>
+  </div>
+  <div class="store-stats" id="store-stats" aria-live="polite">
+    <span class="stat"><span class="stat-label" data-i18n="stat_store">Store</span> <span class="stat-value" id="stat-size">—</span></span>
+    <span class="stat"><span class="stat-label" data-i18n="stat_files">Ficheros</span> <span class="stat-value" id="stat-files">—</span></span>
+  </div>
+  <div class="protection" id="protection" aria-live="polite">
+    <span class="prot-dot" id="prot-dot" aria-hidden="true"></span>
+    <span class="prot-label" id="prot-label">Protección activa</span>
+    <button type="button" id="btn-pause" class="btn btn-small" aria-pressed="false">Pausar</button>
+  </div>
+  <nav class="top-actions" aria-label="Acciones">
+    <button type="button" id="btn-activity" class="btn" aria-haspopup="dialog">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span data-i18n="activity">Actividad</span>
+    </button>
+    <button type="button" id="btn-settings" class="btn" aria-haspopup="dialog">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.01a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55h.01a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.01a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1z" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+      <span data-i18n="settings">Ajustes</span>
+    </button>
+    <button type="button" id="btn-about" class="btn" aria-haspopup="dialog">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 11v5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="8" r="1.2" fill="currentColor"/></svg>
+      <span data-i18n="about">Acerca de</span>
+    </button>
+    <button type="button" id="btn-theme" class="btn icon-btn" data-i18n-aria-label="toggle_theme" data-i18n-title="toggle_theme" aria-label="Cambiar tema claro/oscuro">
+      <span aria-hidden="true" id="theme-icon">🌙</span>
+    </button>
+  </nav>
+</header>
+
+<div class="layout">
+  <aside class="sidebar" aria-label="Ficheros">
+    <div class="sidebar-controls">
+      <label class="visually-hidden" for="search" data-i18n="search_files_label">Buscar ficheros</label>
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <input type="search" id="search" data-i18n-placeholder="search_files" placeholder="Buscar ficheros…" autocomplete="off" />
+      </div>
+      <div class="filters" role="tablist" aria-label="Filtro">
+        <button type="button" class="filter active" data-filter="all" role="tab" aria-selected="true" data-i18n="filter_all">Todos</button>
+        <button type="button" class="filter" data-filter="modified" role="tab" aria-selected="false" data-i18n="filter_modified">Modificados</button>
+        <button type="button" class="filter" data-filter="deleted" role="tab" aria-selected="false" data-i18n="filter_deleted">Borrados</button>
+      </div>
+      <p class="side-heading" data-i18n="files_heading">Archivos</p>
+    </div>
+    <ul class="file-list" id="file-list" aria-label="Lista de ficheros"></ul>
+    <div class="empty-state" id="files-empty" hidden>
+      <p><strong data-i18n="no_files_title">Aún no hay ficheros versionados.</strong></p>
+      <p data-i18n="no_files_body">unmessai versiona tus archivos en segundo plano. En cuanto modifiques un fichero vigilado aparecerá aquí su historial.</p>
+    </div>
+    <div class="storage-card" aria-live="polite">
+      <p class="storage-title" data-i18n="storage">Almacenamiento</p>
+      <p class="storage-detail" id="storage-detail">—</p>
+    </div>
+  </aside>
+
+  <main class="main" id="main" tabindex="-1">
+    <div class="panel-empty" id="panel-empty">
+      <p class="panel-empty-title" data-i18n="select_file_title">Selecciona un fichero</p>
+      <p data-i18n="select_file_body">Elige un fichero de la izquierda para ver sus versiones, comparar cambios y restaurar.</p>
+    </div>
+
+    <section class="file-view" id="file-view" hidden>
+      <div class="file-head">
+        <div class="file-head-main">
+          <h2 id="file-path" class="file-path"></h2>
+          <button type="button" class="btn icon-btn btn-copy" id="btn-copy-path" data-i18n-title="copy_path" data-i18n-aria-label="copy_path" aria-label="Copiar ruta">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+          <span class="badge badge-deleted" id="file-deleted-badge" hidden data-i18n="deleted_badge">borrado</span>
+        </div>
+        <div class="file-head-actions">
+          <button type="button" class="btn btn-danger-ghost" id="btn-untrack">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span data-i18n="untrack">Dejar de proteger</span>
+          </button>
+          <button type="button" class="btn btn-primary" id="btn-restore" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span data-i18n="restore_version">Restaurar versión</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="file-body">
+        <div class="versions-col">
+          <p class="side-heading" data-i18n="versions">Versiones</p>
+          <ul class="version-list" id="version-list" aria-label="Versiones del fichero"></ul>
+        </div>
+
+        <div class="content-col">
+          <div class="view-controls">
+            <div class="toggle" role="tablist" aria-label="Modo de vista">
+              <button type="button" id="mode-diff" class="mode active" role="tab" aria-selected="true" data-i18n="mode_diff">Diff</button>
+              <button type="button" id="mode-content" class="mode" role="tab" aria-selected="false" data-i18n="mode_content">Contenido</button>
+            </div>
+            <div class="compare" id="compare-controls">
+              <label for="compare-to" data-i18n="compare_with">Comparar con</label>
+              <select id="compare-to" aria-label="Versión de comparación"></select>
+            </div>
+          </div>
+          <div class="viewer" id="viewer" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Panel Actividad -->
+<div class="overlay" id="activity-overlay" hidden>
+  <div class="drawer" role="dialog" aria-modal="true" aria-labelledby="activity-title" id="activity-dialog">
+    <div class="drawer-head">
+      <h2 id="activity-title" data-i18n="recent_activity">Actividad reciente</h2>
+      <button type="button" class="btn icon-btn" data-close="activity" data-i18n-aria-label="close" aria-label="Cerrar">✕</button>
+    </div>
+    <ul class="journal-list" id="journal-list"></ul>
+    <p class="empty-state" id="journal-empty" hidden data-i18n="no_activity">Sin actividad todavía.</p>
+  </div>
+</div>
+
+<!-- Modal Ajustes -->
+<div class="overlay" id="settings-overlay" hidden>
+  <div class="modal modal-settings" role="dialog" aria-modal="true" aria-labelledby="settings-title" id="settings-dialog">
+    <div class="modal-head">
+      <h2 id="settings-title" data-i18n="settings_title">Ajustes</h2>
+      <button type="button" class="btn icon-btn" data-close="settings" data-i18n-aria-label="close" aria-label="Cerrar">✕</button>
+    </div>
+    <form id="settings-form" class="settings-form">
+      <div class="settings-body">
+        <nav class="settings-nav" aria-label="Secciones de ajustes">
+          <button type="button" class="settings-tab active" data-tab="general" aria-selected="true">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <span data-i18n="tab_general">General</span>
+          </button>
+          <button type="button" class="settings-tab" data-tab="watch" aria-selected="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+            <span data-i18n="tab_watch">Vigilancia</span>
+          </button>
+          <button type="button" class="settings-tab" data-tab="ignored" aria-selected="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5.6 5.6l12.8 12.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <span data-i18n="tab_ignored">Ignorados</span>
+          </button>
+          <button type="button" class="settings-tab" data-tab="retention" aria-selected="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span data-i18n="tab_retention">Retención</span>
+          </button>
+        </nav>
+
+        <div class="settings-panels">
+          <section class="settings-panel active" data-panel="general">
+            <div class="field">
+              <label for="cfg-lang" data-i18n="language">Idioma</label>
+              <p class="hint" data-i18n="language_hint">Idioma de la interfaz.</p>
+              <select id="cfg-lang"></select>
+            </div>
+            <div class="field">
+              <label for="cfg-prefix" data-i18n="cfg_prefix">Carpeta del backup</label>
+              <p class="hint" data-i18n="cfg_prefix_hint">Raíz donde se guardan las versiones (solo lectura).</p>
+              <input type="text" id="cfg-prefix" readonly />
+            </div>
+            <div class="field">
+              <label for="cfg-port" data-i18n="cfg_port">Puerto de la UI</label>
+              <p class="hint" data-i18n="cfg_port_hint">Puerto local del servidor de la interfaz.</p>
+              <input type="number" id="cfg-port" min="1" max="65535" />
+            </div>
+          </section>
+
+          <section class="settings-panel" data-panel="watch" hidden>
+            <div class="field">
+              <label for="cfg-debounce" data-i18n="cfg_debounce">Debounce (segundos)</label>
+              <p class="hint" data-i18n="cfg_debounce_hint">Espera tras el último cambio antes de versionar.</p>
+              <input type="number" id="cfg-debounce" min="1" />
+            </div>
+            <div class="field">
+              <label for="cfg-included" data-i18n="cfg_included">Rutas vigiladas</label>
+              <p class="hint" data-i18n="cfg_included_hint">Una por línea. Admiten ~.</p>
+              <textarea id="cfg-included" rows="3" spellcheck="false"></textarea>
+            </div>
+            <div class="field">
+              <label for="cfg-excluded" data-i18n="cfg_excluded">Rutas excluidas</label>
+              <p class="hint" data-i18n="cfg_excluded_hint">Una por línea. No se vigilan.</p>
+              <textarea id="cfg-excluded" rows="3" spellcheck="false"></textarea>
+            </div>
+          </section>
+
+          <section class="settings-panel" data-panel="ignored" hidden>
+            <div class="field">
+              <label for="cfg-ignore-patterns" data-i18n="cfg_ignore_patterns">Patrones de ignorado</label>
+              <p class="hint" data-i18n="cfg_ignore_patterns_hint"></p>
+              <textarea id="cfg-ignore-patterns" rows="4" spellcheck="false"></textarea>
+            </div>
+            <div class="field">
+              <label for="cfg-exclude-names" data-i18n="cfg_exclude_names">Nombres de carpeta excluidos</label>
+              <p class="hint" data-i18n="cfg_exclude_names_hint"></p>
+              <textarea id="cfg-exclude-names" rows="3" spellcheck="false"></textarea>
+            </div>
+            <div class="field field-inline">
+              <label class="checkbox">
+                <input type="checkbox" id="cfg-gitignore" /> <span data-i18n="cfg_gitignore">Respetar .gitignore</span>
+              </label>
+              <p class="hint" data-i18n="cfg_gitignore_hint"></p>
+            </div>
+            <div class="field">
+              <button type="button" class="btn btn-danger-ghost" id="btn-purge-ignored">
+                <span data-i18n="purge_ignored">Purgar ignorados del historial</span>
+              </button>
+              <p class="hint" data-i18n="purge_ignored_hint"></p>
+            </div>
+          </section>
+
+          <section class="settings-panel" data-panel="retention" hidden>
+            <div class="field">
+              <label for="cfg-max-versions" data-i18n="retention_max_versions">Máx. versiones por fichero</label>
+              <input type="number" id="cfg-max-versions" min="0" />
+            </div>
+            <div class="field">
+              <label for="cfg-max-age" data-i18n="retention_max_age">Máx. antigüedad (días)</label>
+              <input type="number" id="cfg-max-age" min="0" />
+            </div>
+            <div class="field">
+              <label for="cfg-deleted-age" data-i18n="retention_deleted_age">Purgar borrados tras (días)</label>
+              <input type="number" id="cfg-deleted-age" min="0" />
+            </div>
+            <div class="field">
+              <label for="cfg-min-keep" data-i18n="retention_min_keep">Mínimo a conservar</label>
+              <input type="number" id="cfg-min-keep" min="0" />
+            </div>
+          </section>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" data-close="settings" data-i18n="cancel">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="settings-save" data-i18n="save">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Acerca de -->
+<div class="overlay" id="about-overlay" hidden>
+  <div class="modal modal-small" role="dialog" aria-modal="true" aria-labelledby="about-title" id="about-dialog">
+    <div class="modal-head">
+      <h2 id="about-title" data-i18n="about_title">Acerca de unmessai</h2>
+      <button type="button" class="btn icon-btn" data-close="about" data-i18n-aria-label="close" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="about-body">
+      <p data-i18n="about_desc">unmessai protege tus archivos versionándolos automáticamente en segundo plano. Local-first: nada sale de tu equipo.</p>
+      <p class="about-version"><span data-i18n="about_version">Versión</span> <strong id="about-version">—</strong></p>
+      <p><a href="https://unmessai.com/" target="_blank" rel="noopener noreferrer" data-i18n="website">unmessai.com</a></p>
+      <div class="about-support">
+        <p data-i18n="about_thanks">Gracias por apoyar el proyecto:</p>
+        <div class="support-links">
+          <a class="btn" href="https://ko-fi.com/luisobz" target="_blank" rel="noopener noreferrer">Ko-fi</a>
+          <a class="btn" href="https://github.com/sponsors/luisobz" target="_blank" rel="noopener noreferrer">GitHub Sponsors</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal confirmación de restore -->
+<div class="overlay" id="restore-overlay" hidden>
+  <div class="modal modal-small" role="dialog" aria-modal="true" aria-labelledby="restore-title" id="restore-dialog">
+    <div class="modal-head">
+      <h2 id="restore-title" data-i18n="restore_title">Restaurar versión</h2>
+      <button type="button" class="btn icon-btn" data-close="restore" data-i18n-aria-label="close" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="about-body">
+      <p id="restore-desc"></p>
+      <p class="safety-note" data-i18n="restore_safety"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn" data-close="restore" data-i18n="cancel">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="restore-confirm" data-i18n="restore_confirm">Restaurar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal confirmación de dejar de proteger -->
+<div class="overlay" id="untrack-overlay" hidden>
+  <div class="modal modal-small" role="dialog" aria-modal="true" aria-labelledby="untrack-title" id="untrack-dialog">
+    <div class="modal-head">
+      <h2 id="untrack-title" data-i18n="untrack_title">Dejar de proteger</h2>
+      <button type="button" class="btn icon-btn" data-close="untrack" data-i18n-aria-label="close" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="about-body">
+      <p id="untrack-desc"></p>
+      <p class="safety-note" data-i18n="untrack_note"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn" data-close="untrack" data-i18n="cancel">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="untrack-confirm" data-i18n="untrack_confirm">Eliminar historial</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container" aria-live="assertive"></div>
+
+<script src="/i18n.js"></script>
+<script src="/app.js"></script>

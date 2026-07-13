@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=unmessai
+GenericName=Versionado automático de archivos
+Comment=Restaura cualquier versión anterior de tus archivos
+Exec=unmess-app
+Icon=unmessai
+Terminal=false
+Categories=Utility;System;Archiving;
+Keywords=backup;versiones;restore;snapshot;
+StartupNotify=true
+StartupWMClass=unmess-app

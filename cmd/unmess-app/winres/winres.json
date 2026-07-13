@@ -1,0 +1,17 @@
+{
+  "RT_GROUP_ICON": {
+    "APP": {
+      "0000": "../../../build/appicon/icon.ico"
+    }
+  },
+  "RT_MANIFEST": {
+    "#1": {
+      "0409": {
+        "identity": { "name": "ai.unmess.app", "version": "0.1.0.0" },
+        "description": "unmessai",
+        "dpiAwareness": "system",
+        "executionLevel": "asInvoker"
+      }
+    }
+  }
+}

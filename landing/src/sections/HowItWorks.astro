@@ -1,0 +1,47 @@
+---
+import type { Copy } from "@/consts/i18n";
+
+interface Props { copy: Copy }
+const { copy } = Astro.props;
+
+const steps = [
+  { titleKey: "step1Title", textKey: "step1Text" },
+  { titleKey: "step2Title", textKey: "step2Text" },
+  { titleKey: "step3Title", textKey: "step3Text" },
+] as const;
+---
+<section id="como-funciona">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow" data-i18n="howEyebrow">{copy.howEyebrow}</span>
+      <h2 data-i18n="howTitle">{copy.howTitle}</h2>
+      <p data-i18n="howLead">{copy.howLead}</p>
+    </div>
+    <div class="steps">
+      {steps.map((step, i) => (
+        <div class="step">
+          <span class="num">{i + 1}</span>
+          <h3 data-i18n={step.titleKey}>{copy[step.titleKey]}</h3>
+          <p data-i18n={step.textKey}>{copy[step.textKey]}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .steps { display: grid; grid-template-columns: 1fr; gap: 22px; }
+  @media (min-width: 760px) { .steps { grid-template-columns: repeat(3, 1fr); } }
+  .step {
+    position: relative; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 28px 24px; box-shadow: var(--shadow);
+  }
+  .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 42px; height: 42px; border-radius: var(--radius);
+    background: var(--accent-soft); color: var(--accent-ink); border: 1px solid var(--border);
+    font-weight: 800; font-size: 1.05rem; margin-bottom: 16px;
+  }
+  .step h3 { font-size: 1.18rem; margin-bottom: 8px; }
+  .step p { color: var(--text-muted); font-size: 0.98rem; }
+</style>

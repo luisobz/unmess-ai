@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=unmessai
+Comment=Protección automática de archivos (icono en la bandeja)
+Exec=unmess-app --background
+Icon=unmessai
+Terminal=false
+Categories=Utility;System;
+X-GNOME-Autostart-enabled=true
+StartupNotify=false
+StartupWMClass=unmess-app

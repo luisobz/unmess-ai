@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Info.plist del bundle unmessai.app (app nativa: menu bar + ventana WebView).
+     make-app.sh sustituye __VERSION__ por la versión de release. -->
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key>
+  <string>unmess</string>
+  <key>CFBundleDisplayName</key>
+  <string>unmessai</string>
+  <key>CFBundleIdentifier</key>
+  <string>ai.unmess.app</string>
+  <key>CFBundleVersion</key>
+  <string>__VERSION__</string>
+  <key>CFBundleShortVersionString</key>
+  <string>__VERSION__</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleExecutable</key>
+  <string>unmess-app</string>
+  <key>CFBundleIconFile</key>
+  <string>icon.icns</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>10.15</string>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+  <!-- App normal (aparece en el Launchpad/Dock) además del icono de menu bar.
+       Para una app solo-menu-bar, poner LSUIElement en true. -->
+  <key>LSUIElement</key>
+  <false/>
+</dict>
+</plist>

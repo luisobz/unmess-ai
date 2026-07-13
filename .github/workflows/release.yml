@@ -1,0 +1,83 @@
+name: Release (producto)
+
+# Publica binarios al taggear vX.Y.Z.
+# También se puede lanzar a mano desde Actions.
+#
+# Secrets:  SSH_HOST, SSH_USER, SSH_KEY
+# Variables: SSH_PORT (def. 22), DOWNLOADS_PATH
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SSH_PORT: ${{ vars.SSH_PORT || '22' }}
+  VERSION: ${{ github.ref_name }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Compilar binarios (cross-compile 4 plataformas)
+        run: |
+          mkdir -p dist/linux-amd64 dist/darwin-arm64 dist/darwin-amd64 dist/windows-amd64
+          GOOS=linux   GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${VERSION#v}" -o dist/linux-amd64/   ./cmd/...
+          GOOS=darwin  GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${VERSION#v}" -o dist/darwin-arm64/  ./cmd/...
+          GOOS=darwin  GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${VERSION#v}" -o dist/darwin-amd64/  ./cmd/...
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${VERSION#v}" -o dist/windows-amd64/ ./cmd/...
+
+      - name: Empaquetar binarios
+        run: |
+          cd dist
+          tar -czf unmessai-${VERSION}-linux-amd64.tar.gz   -C linux-amd64   .
+          tar -czf unmessai-${VERSION}-darwin-arm64.tar.gz  -C darwin-arm64  .
+          tar -czf unmessai-${VERSION}-darwin-amd64.tar.gz  -C darwin-amd64  .
+          zip  -q  unmessai-${VERSION}-windows-amd64.zip      windows-amd64/*
+
+      - name: Instalar dependencias de sistema (GTK3/WebKit2GTK para Wails)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev
+
+      - name: Construir .deb
+        run: |
+          VER="${VERSION#v}"
+          bash packaging/linux/build-deb.sh "$VER"
+
+      - name: Publicar en GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/unmessai-*.tar.gz
+            dist/unmessai-*.zip
+            dist/unmessai_*.deb
+          generate_release_notes: true
+
+      - name: Subir binarios al servidor (descarga alternativa)
+        if: ${{ vars.DOWNLOADS_PATH != '' }}
+        env:
+          HOST: ${{ secrets.SSH_HOST }}
+          USER: ${{ secrets.SSH_USER }}
+          DEST: ${{ vars.DOWNLOADS_PATH }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -p "${SSH_PORT}" "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          SSH="ssh -i ~/.ssh/id_deploy -p ${SSH_PORT} -o StrictHostKeyChecking=accept-new"
+          $SSH "$USER@$HOST" "mkdir -p $DEST"
+          rsync -az -e "$SSH" dist/unmessai-*.tar.gz dist/unmessai-*.zip dist/unmessai_*.deb "$USER@$HOST:$DEST/"

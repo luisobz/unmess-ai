@@ -1,0 +1,24 @@
+---
+// Botón de cambio de tema claro/oscuro. El tema inicial lo fija un script inline
+// en el <head> del layout (antes del primer pintado, sin FOUC); el clic lo
+// gestiona scripts/client.ts.
+interface Props { label: string }
+const { label } = Astro.props;
+---
+<button type="button" class="icon-btn" id="theme-toggle" aria-label={label} data-theme-label={label}>
+  <svg class="sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8 6 18M18 6l1.8-1.8"/></svg>
+  <svg class="moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>
+</button>
+
+<style>
+  .icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; border-radius: var(--radius);
+    background: var(--surface-2); border: 1px solid var(--border);
+    color: var(--text); cursor: pointer;
+  }
+  .icon-btn:hover { border-color: var(--border-strong); }
+  .icon-btn .moon { display: none; }
+  :global(:root[data-theme="dark"]) .icon-btn .sun { display: none; }
+  :global(:root[data-theme="dark"]) .icon-btn .moon { display: block; }
+</style>

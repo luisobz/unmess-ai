@@ -1,0 +1,51 @@
+---
+import "@/styles/global.css";
+import { DEFAULT_LANG, type Copy } from "@/consts/i18n";
+import { SITE } from "@/consts/site";
+
+interface Props { copy: Copy }
+const { copy } = Astro.props;
+
+const canonical = new URL(Astro.url.pathname, SITE.url).href;
+---
+<!doctype html>
+<html lang={DEFAULT_LANG}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href={canonical} />
+
+    <title>{copy.title}</title>
+    <meta name="description" content={copy.metaDescription} />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={SITE.name} />
+    <meta property="og:title" content={copy.title} />
+    <meta property="og:description" content={copy.metaDescription} />
+    <meta property="og:url" content={canonical} />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={copy.title} />
+    <meta name="twitter:description" content={copy.metaDescription} />
+
+    <!-- Fija el tema antes del primer pintado para evitar parpadeo (FOUC). -->
+    <script is:inline>
+      (function () {
+        try {
+          var t = localStorage.getItem("unmessai-theme");
+          var dark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+          document.documentElement.setAttribute("data-theme", t || (dark ? "dark" : "light"));
+        } catch (e) {
+          document.documentElement.setAttribute("data-theme", "light");
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <slot />
+    <script>
+      import "@/scripts/client.ts";
+    </script>
+  </body>
+</html>

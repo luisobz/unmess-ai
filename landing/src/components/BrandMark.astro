@@ -1,0 +1,20 @@
+---
+// Escudo con check de unmessai. Reutilizado en cabecera y pie.
+interface Props {
+  size?: number;
+  /** El pie no dibuja el relleno translúcido, solo el trazo. */
+  filled?: boolean;
+}
+const { size = 26, filled = true } = Astro.props;
+---
+<svg class="mark" width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+  {filled && (
+    <path d="M12 2.5 4 5.6v5.2c0 4.7 3.2 8.5 8 10.7 4.8-2.2 8-6 8-10.7V5.6L12 2.5Z" fill="currentColor" opacity="0.16"/>
+  )}
+  <path d="M12 2.5 4 5.6v5.2c0 4.7 3.2 8.5 8 10.7 4.8-2.2 8-6 8-10.7V5.6L12 2.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="m8.4 12 2.5 2.5 4.7-4.9" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
+<style>
+  .mark { color: var(--accent); flex: none; }
+</style>

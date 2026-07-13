@@ -1,0 +1,13 @@
+bin/
+dist/
+*.exe
+.DS_Store
+.commandcode
+
+# Binarios compilados en la raíz del repo
+/unmess
+/unmessd
+/unmess-app
+
+# Recursos de Windows generados por go-winres (no versionar)
+cmd/unmess-app/*.syso

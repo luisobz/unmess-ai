@@ -1,0 +1,25 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import Header from "@/sections/Header.astro";
+import Hero from "@/sections/Hero.astro";
+import HowItWorks from "@/sections/HowItWorks.astro";
+import Downloads from "@/sections/Downloads.astro";
+import Support from "@/sections/Support.astro";
+import SiteFooter from "@/sections/SiteFooter.astro";
+import { DICT, DEFAULT_LANG } from "@/consts/i18n";
+
+// El servidor renderiza el idioma por defecto; el cliente puede cambiarlo en vivo.
+const copy = DICT[DEFAULT_LANG];
+---
+<Layout copy={copy}>
+  <a class="skip" href="#main">{copy.skip}</a>
+  <Header copy={copy} />
+  <a id="top"></a>
+  <main id="main">
+    <Hero copy={copy} />
+    <HowItWorks copy={copy} />
+    <Downloads copy={copy} />
+    <Support copy={copy} />
+  </main>
+  <SiteFooter copy={copy} />
+</Layout>

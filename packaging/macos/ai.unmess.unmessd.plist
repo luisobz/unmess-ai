@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- LaunchAgent por usuario. `unmess service install` genera
+     este mismo contenido en ~/Library/LaunchAgents con la ruta real del binario. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>ai.unmess.unmessd</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/unmessd</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/unmessd.err.log</string>
+</dict>
+</plist>
