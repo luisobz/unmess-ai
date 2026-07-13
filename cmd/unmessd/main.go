@@ -17,7 +17,12 @@ import (
 )
 
 // version es la versión del binario; se expone en GET /api/status.
-const version = "0.1.0-dev"
+var version = "0.1.0-dev"
+
+// devMode, inyectado vía -ldflags para builds locales, cambia los defaults
+// de config para no colisionar con la instalación de producción (puerto,
+// prefijo del store y ruta de config.toml distintos).
+var devMode = ""
 
 func main() {
 	configPath := flag.String("config", "", "ruta alternativa a config.toml")
@@ -25,7 +30,7 @@ func main() {
 
 	logger := log.New(os.Stderr, "unmessd ", log.LstdFlags)
 
-	cfg, err := config.LoadOrCreate(*configPath)
+	cfg, err := config.LoadOrCreate(*configPath, devMode == "true")
 	if err != nil {
 		logger.Fatalf("cargando configuración: %v", err)
 	}

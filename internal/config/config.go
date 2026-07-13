@@ -84,32 +84,65 @@ func HomeDir() (string, error) {
 // DefaultPath devuelve la ruta del fichero de configuración: UNMESSAI_CONFIG si
 // está definido, o os.UserConfigDir()/unmessai/config.toml.
 func DefaultPath() (string, error) {
+	return defaultPathFor("unmessai")
+}
+
+// devPath es como DefaultPath pero bajo un subdirectorio distinto para
+// builds locales, de forma que no colisione con producción.
+func devPath() (string, error) {
+	return defaultPathFor("unmessai-dev")
+}
+
+func defaultPathFor(dir string) (string, error) {
 	if p := os.Getenv("UNMESSAI_CONFIG"); p != "" {
 		return p, nil
 	}
-	dir, err := os.UserConfigDir()
+	ud, err := os.UserConfigDir()
 	if err != nil {
 		return "", fmt.Errorf("resolviendo directorio de configuración: %w", err)
 	}
-	return filepath.Join(dir, "unmessai", "config.toml"), nil
+	return filepath.Join(ud, dir, "config.toml"), nil
+}
+
+// DevDefaults devuelve la config por defecto para builds de desarrollo
+// locales. Usa un puerto, prefijo de store y ruta de config distintos
+// para no colisionar con la instalación de producción.
+func DevDefaults() *Config {
+	cfg := Default()
+	cfg.Prefix = "~/UnmessaiBackups-dev"
+	cfg.UI.Port = 48222
+	return cfg
 }
 
 // LoadOrCreate carga la configuración desde path. Si path es "", usa DefaultPath.
 // Si el fichero no existe lo crea con los valores por defecto y comentarios, y
-// devuelve esos valores.
-func LoadOrCreate(path string) (*Config, error) {
+// devuelve esos valores. Si dev es true usa DevDefaults y la ruta devPath.
+func LoadOrCreate(path string, dev bool) (*Config, error) {
 	if path == "" {
-		p, err := DefaultPath()
-		if err != nil {
-			return nil, err
+		if dev {
+			p, err := devPath()
+			if err != nil {
+				return nil, err
+			}
+			path = p
+		} else {
+			p, err := DefaultPath()
+			if err != nil {
+				return nil, err
+			}
+			path = p
 		}
-		path = p
 	}
 	if _, err := os.Stat(path); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, fmt.Errorf("accediendo a config %q: %w", path, err)
 		}
-		cfg := Default()
+		var cfg *Config
+		if dev {
+			cfg = DevDefaults()
+		} else {
+			cfg = Default()
+		}
 		cfg.path = path
 		if err := cfg.Save(); err != nil {
 			return nil, err

@@ -126,16 +126,10 @@ function renderStatus() {
 // applyProtection refleja el estado de vigilancia en la píldora de la cabecera.
 function applyProtection(paused) {
   state.paused = paused;
-  const dot = $("prot-dot");
   const label = $("prot-label");
   const btn = $("btn-pause");
-  $("protection").classList.toggle("paused", paused);
-  if (dot) dot.classList.toggle("off", paused);
   if (label) label.textContent = paused ? t("protection_paused") : t("protection_active");
-  if (btn) {
-    btn.textContent = paused ? t("resume") : t("pause");
-    btn.setAttribute("aria-pressed", paused ? "true" : "false");
-  }
+  if (btn) btn.setAttribute("aria-pressed", paused ? "true" : "false");
 }
 
 // togglePause pausa o reanuda la vigilancia en el daemon.

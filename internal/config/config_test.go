@@ -10,7 +10,7 @@ import (
 
 func TestLoadOrCreateWritesDefaultsWithComments(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "sub", "config.toml")
-	cfg, err := LoadOrCreate(path)
+	cfg, err := LoadOrCreate(path, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func TestLoadOrCreateExistingLoads(t *testing.T) {
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := LoadOrCreate(path)
+	cfg, err := LoadOrCreate(path, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func TestDefaultPathRespectsEnv(t *testing.T) {
 		t.Errorf("DefaultPath = %q, quiero %q", got, custom)
 	}
 	// LoadOrCreate("") lo respeta y crea ahí.
-	if _, err := LoadOrCreate(""); err != nil {
+	if _, err := LoadOrCreate("", false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(custom); err != nil {

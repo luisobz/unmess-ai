@@ -96,7 +96,7 @@ export const DICT: Record<Lang, Copy> = {
     dlAll: "Todas las descargas y notas de la versión",
     supTitle: "¿Te resulta útil?",
     supText:
-      "unmessai es gratuito. Si quieres apoyar su desarrollo, cualquier ayuda es bienvenida, aunque totalmente opcional.",
+      "unmessai es gratuito. Si quieres apoyar su desarrollo, cualquier ayuda es bienvenida.",
     footDl: "Descargas",
     footHow: "Cómo funciona",
     footDocs: "Documentación",
@@ -148,7 +148,7 @@ export const DICT: Record<Lang, Copy> = {
     dlAll: "All downloads and release notes",
     supTitle: "Finding it useful?",
     supText:
-      "unmessai is free. If you'd like to support its development, any help is welcome, though entirely optional.",
+      "unmessai is free. If you'd like to support its development, any help is welcome.",
     footDl: "Downloads",
     footHow: "How it works",
     footDocs: "Documentation",

@@ -6,3 +6,8 @@ starship = "latest"
 
 [settings]
 experimental = true
+
+[tasks.build-dev-deb]
+description = "Build local dev .deb (unmessai-dev, port 48222, no collision with production)"
+run = "bash packaging/linux/build-deb-local.sh"
+depends = []

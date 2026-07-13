@@ -14,11 +14,11 @@
     <span class="stat"><span class="stat-label" data-i18n="stat_store">Store</span> <span class="stat-value" id="stat-size">—</span></span>
     <span class="stat"><span class="stat-label" data-i18n="stat_files">Ficheros</span> <span class="stat-value" id="stat-files">—</span></span>
   </div>
-  <div class="protection" id="protection" aria-live="polite">
-    <span class="prot-dot" id="prot-dot" aria-hidden="true"></span>
-    <span class="prot-label" id="prot-label">Protección activa</span>
-    <button type="button" id="btn-pause" class="btn btn-small" aria-pressed="false">Pausar</button>
-  </div>
+  <button type="button" id="btn-pause" class="btn btn-pause" aria-pressed="false">
+    <svg class="pause-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+    <svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4l14 8-14 8z"/></svg>
+    <span id="prot-label">Protección activa</span>
+  </button>
   <nav class="top-actions" aria-label="Acciones">
     <button type="button" id="btn-activity" class="btn" aria-haspopup="dialog">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>

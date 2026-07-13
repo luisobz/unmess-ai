@@ -51,7 +51,7 @@ func main() {
 	)
 	flag.Parse()
 
-	cfg, err := config.LoadOrCreate(*configPath)
+	cfg, err := config.LoadOrCreate(*configPath, false)
 	if err != nil {
 		log.Fatalf("unmess-app: cargando configuración: %v", err)
 	}

@@ -27,6 +27,10 @@ Opciones globales:
   --config <ruta>   ruta alternativa a config.toml
 `
 
+// devMode, inyectado vía -ldflags para builds locales; cuando es "true", el
+// CLI usa la config y puerto de desarrollo.
+var devMode = ""
+
 func main() {
 	args := os.Args[1:]
 	// Extrae --config global (antes o después del subcomando).
@@ -100,7 +104,7 @@ func extractConfig(args []string) (string, []string) {
 
 // loadConfig carga (o crea) la configuración.
 func loadConfig(configPath string) (*config.Config, error) {
-	return config.LoadOrCreate(configPath)
+	return config.LoadOrCreate(configPath, devMode == "true")
 }
 
 // openStore carga la config y construye el store con prefix y baseDir resueltos.

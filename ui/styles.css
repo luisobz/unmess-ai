@@ -191,24 +191,28 @@ body {
 }
 .stat-value { font-weight: 600; }
 
-.protection {
-  display: flex;
+.btn-pause {
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 5px 6px 5px 12px;
+  padding: 6px 14px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 8px;
   background: var(--bg-elev);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
 }
-.prot-dot {
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
-}
-.prot-dot.off { background: #d97706; box-shadow: 0 0 0 3px rgba(217, 119, 6, .2); }
-.protection.paused { border-color: #d97706; }
-.prot-label { font-size: 12.5px; font-weight: 500; }
+.btn-pause:hover { border-color: var(--border-strong); background: var(--bg-hover); }
+.btn-pause[aria-pressed="true"] { border-color: #d97706; color: #d97706; }
+.btn-pause .pause-icon,
+.btn-pause .play-icon { width: 16px; height: 16px; flex: none; fill: currentColor; }
+.btn-pause .play-icon { display: none; }
+.btn-pause[aria-pressed="true"] .pause-icon { display: none; }
+.btn-pause[aria-pressed="true"] .play-icon { display: inline; }
+#prot-label { font-size: 12.5px; font-weight: 500; }
 
 .top-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 
@@ -434,14 +438,11 @@ select option { background: var(--bg-elev); color: var(--text); }
   margin: 0;
   padding: 4px 0 4px 18px;
   overflow-y: auto;
-  position: relative;
-}
-.version-list::before {
-  content: "";
-  position: absolute;
-  left: 4px; top: 12px; bottom: 12px;
-  width: 2px;
-  background: var(--border);
+  background-image: linear-gradient(to bottom, var(--border), var(--border));
+  background-size: 2px calc(100% - 24px);
+  background-position: 6px 12px;
+  background-repeat: no-repeat;
+  background-attachment: local;
 }
 
 .version-item {
@@ -456,7 +457,7 @@ select option { background: var(--bg-elev); color: var(--text); }
 .version-item::before {
   content: "";
   position: absolute;
-  left: -18px; top: 50%;
+  left: -12px; top: 50%;
   transform: translate(-50%, -50%);
   width: 8px; height: 8px;
   border-radius: 50%;
@@ -737,7 +738,7 @@ select option { background: var(--bg-elev); color: var(--text); }
 /* --- responsive --- */
 
 @media (max-width: 900px) {
-  .store-stats, .prot-label { display: none; }
+  .store-stats, #prot-label { display: none; }
   .sidebar { width: 260px; }
   .versions-col { width: 220px; }
   .top-actions .btn span { display: none; }

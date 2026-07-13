@@ -59,12 +59,25 @@ EOF
 # El autoarranque del daemon por servicio sigue siendo por usuario
 # (unmess service install). El autostart de la app (bandeja) se instala como
 # entrada XDG y lo arranca la sesión gráfica de cada usuario.
+cat > "$PKG/DEBIAN/prerm" <<'EOF'
+#!/bin/sh
+set -e
+# Mata cualquier daemon corriendo antes de desinstalar/actualizar para que
+# el nuevo binario (con la UI embebida actualizada) tome el relevo.
+pkill unmessd 2>/dev/null || true
+EOF
+chmod 0755 "$PKG/DEBIAN/prerm"
+
 cat > "$PKG/DEBIAN/postinst" <<'EOF'
 #!/bin/sh
 set -e
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then
   gtk-update-icon-cache -q /usr/share/icons/hicolor 2>/dev/null || true
 fi
+# Mata cualquier daemon viejo que pudiera quedar (por si acaso) y arranca
+# el nuevo para que la UI que abra el usuario ya use el binario actualizado.
+pkill unmessd 2>/dev/null || true
+nohup /usr/bin/unmessd >/dev/null 2>&1 &
 echo "unmessai instalado. Abre la app desde el lanzador o ejecuta: unmess ui"
 EOF
 chmod 0755 "$PKG/DEBIAN/postinst"
