@@ -1,9 +1,10 @@
 ---
 import type { Copy } from "@/consts/i18n";
-import { DOWNLOADS, RELEASES_URL } from "@/consts/site";
+import { DOWNLOADS, RELEASES_URL, RELEASE_VERSION } from "@/consts/site";
 
 interface Props { copy: Copy }
 const { copy } = Astro.props;
+const dlFoot = copy.dlFoot.replace("{version}", RELEASE_VERSION);
 ---
 <section id="descargas" class="downloads">
   <div class="wrap">
@@ -50,7 +51,7 @@ const { copy } = Astro.props;
       ))}
     </div>
     <p class="dl-foot">
-      <span data-i18n="dlFoot">{copy.dlFoot}</span>
+      <span data-i18n="dlFoot">{dlFoot}</span>
       <a class="dl-all" href={RELEASES_URL}>
         <span data-i18n="dlAll">{copy.dlAll}</span>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>

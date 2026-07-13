@@ -4,6 +4,7 @@
 // en el <head> para evitar parpadeo; aquí solo va el resto.
 
 import { DICT, DEFAULT_LANG, type Lang } from "@/consts/i18n";
+import { RELEASE_VERSION } from "@/consts/site";
 
 const root = document.documentElement;
 
@@ -44,7 +45,9 @@ function applyLang(lang: Lang): void {
 
   document.querySelectorAll<HTMLElement>("[data-i18n]").forEach((el) => {
     const key = el.dataset.i18n as keyof typeof dict | undefined;
-    if (key && dict[key] != null) el.textContent = dict[key];
+    if (key && dict[key] != null) {
+      el.textContent = (dict[key] as string).replace("{version}", RELEASE_VERSION);
+    }
   });
 
   // Metadatos que dependen del idioma.

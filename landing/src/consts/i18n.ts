@@ -92,7 +92,7 @@ export const DICT: Record<Lang, Copy> = {
     dlWin: "Descargar .zip",
     dlLinuxAlt: "Binarios portables (.tar.gz)",
     dlMacAlt: "Mac Intel (x86-64)",
-    dlFoot: "Versión actual v0.1.0.",
+    dlFoot: "Versión actual {version}.",
     dlAll: "Todas las descargas y notas de la versión",
     supTitle: "¿Te resulta útil?",
     supText:
@@ -144,7 +144,7 @@ export const DICT: Record<Lang, Copy> = {
     dlWin: "Download .zip",
     dlLinuxAlt: "Portable binaries (.tar.gz)",
     dlMacAlt: "Mac Intel (x86-64)",
-    dlFoot: "Current version v0.1.0.",
+    dlFoot: "Current version {version}.",
     dlAll: "All downloads and release notes",
     supTitle: "Finding it useful?",
     supText:
