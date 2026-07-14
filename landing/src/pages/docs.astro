@@ -104,6 +104,21 @@ const docs = DOCS[DEFAULT_LANG];
     margin: 1.4em 0 .3em;
     font-weight: 650;
   }
+  .docs-content :global(p) {
+    margin: 0 0 1em;
+    line-height: 1.6;
+  }
+  .docs-content :global(p:last-child) { margin-bottom: 0; }
+  .docs-content :global(ol),
+  .docs-content :global(ul) {
+    margin: 0 0 1em;
+    padding-left: 1.3em;
+    line-height: 1.6;
+  }
+  .docs-content :global(ol li),
+  .docs-content :global(ul li) {
+    margin: 0 0 .4em;
+  }
   .docs-content :global(code) {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: .9em;
@@ -120,7 +135,9 @@ const docs = DOCS[DEFAULT_LANG];
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: .86rem;
     line-height: 1.5;
+    margin: 0 0 1.2em;
   }
+  .docs-content :global(pre:last-child) { margin-bottom: 0; }
   .docs-content :global(pre code) {
     background: none;
     padding: 0;
