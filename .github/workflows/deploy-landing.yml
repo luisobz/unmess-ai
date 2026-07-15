@@ -23,18 +23,19 @@ jobs:
   landing:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Guard — secrets configurados
         run: |
           test -n "${{ secrets.SSH_HOST }}" || { echo "::error::Falta el secret SSH_HOST"; exit 1; }
 
-      - uses: pnpm/action-setup@v4
+      # Sin `version`: la lee del campo packageManager de landing/package.json.
+      - uses: pnpm/action-setup@v6
         with:
-          version: 10
-      - uses: actions/setup-node@v4
+          package_json_file: landing/package.json
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: landing/.nvmrc
           cache: pnpm
           cache-dependency-path: landing/pnpm-lock.yaml
 

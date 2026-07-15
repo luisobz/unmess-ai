@@ -31,9 +31,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
@@ -84,7 +84,7 @@ jobs:
           VER="${VERSION#v}"
           bash packaging/linux/build-deb.sh "$VER"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: packages
           path: |
@@ -94,7 +94,7 @@ jobs:
           if-no-files-found: error
 
       # Los .exe sueltos, para que el job del instalador no tenga que recompilar.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows-binaries
           path: dist/windows-amd64/*.exe
@@ -104,9 +104,9 @@ jobs:
     runs-on: windows-latest
     needs: build
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: windows-binaries
           path: dist/windows-amd64
@@ -117,7 +117,7 @@ jobs:
           $ver = $env:VERSION.TrimStart('v')
           iscc /DAppVersion=$ver packaging\windows\unmessai.iss
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: installer-windows
           path: dist/unmessai-setup-*.exe
@@ -126,14 +126,14 @@ jobs:
   build-snap:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: snapcore/action-build@v1
         id: snapcraft
         with:
           snapcraft-channel: stable
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: snap
           path: ${{ steps.snapcraft.outputs.snap }}
@@ -145,23 +145,23 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: packages
           path: dist
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: installer-windows
           path: dist
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: snap
           path: dist
 
       - name: Publicar en GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             dist/unmessai-*.tar.gz

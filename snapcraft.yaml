@@ -62,6 +62,10 @@ parts:
     plugin: go
     source: .
     source-type: git
+    # En core24 el plugin go no instala la toolchain: hay que declararla.
+    # Mantener el track en sync con la directiva `go` de go.mod.
+    build-snaps:
+      - go/1.25/stable
     build-packages:
       - libgtk-3-dev
       - libwebkit2gtk-4.1-dev

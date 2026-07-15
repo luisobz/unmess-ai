@@ -9,8 +9,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
       - run: go vet ./...
@@ -34,8 +34,8 @@ jobs:
   gui-linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
       - name: Instalar dependencias de WebView/bandeja (GTK3)
@@ -51,7 +51,7 @@ jobs:
         run: |
           go build -o dist/unmessd ./cmd/unmessd
           go build -o dist/unmess ./cmd/unmess
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: unmessai-linux-amd64
           path: dist/
