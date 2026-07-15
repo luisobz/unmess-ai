@@ -179,6 +179,8 @@ body {
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand .logo { display: block; }
 .brand h1 { margin: 0; font-size: 19px; font-weight: 700; letter-spacing: -.02em; }
+/* Dentro de la app nativa (?app=1) el nombre ya está en la ventana. */
+.app-mode .brand h1 { display: none; }
 
 .store-stats { display: flex; gap: 18px; }
 .stat { display: flex; align-items: baseline; gap: 7px; }
@@ -237,6 +239,9 @@ body {
 }
 
 .sidebar-controls { padding: 16px 16px 8px; }
+
+/* "Versionar ahora": acción de anchura completa sobre el buscador. */
+.btn-flush { width: 100%; justify-content: center; margin-bottom: 10px; }
 
 .search-wrap { position: relative; }
 .search-wrap svg {

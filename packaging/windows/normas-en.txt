@@ -1,0 +1,32 @@
+﻿UNMESSAI BASIC USAGE RULES
+
+1. What unmessai does
+unmessai watches the folders you choose and automatically keeps a copy of
+every file when it changes, so you can restore previous versions after an
+accidental deletion or modification.
+
+2. Local-first: your data never leaves your machine
+All copies are stored in the versions folder you choose, on this very
+machine. unmessai does not send data to the internet, does not use the
+cloud and collects no telemetry.
+
+3. Disk space
+Keeping versions takes disk space. unmessai applies an automatic retention
+policy (pruning of old versions), configurable from the app. Choose a
+versions folder on a drive with enough free space.
+
+4. Not a replacement for full backups
+Versions are stored on this same machine: if the disk fails or the machine
+is lost, they are lost too. Keep external backups of anything important.
+
+5. Default exclusions
+To avoid versioning noise, unmessai excludes by default folders such as
+Downloads, Videos or Music, git repositories (and whatever git ignores),
+and very large files. All of this is configurable.
+
+6. Free software, no warranty
+unmessai is distributed under its free software license (see the LICENSE
+file of the project), as is and without warranties of any kind, to the
+extent permitted by law.
+
+If you accept these rules, continue with the installation.

@@ -1,0 +1,33 @@
+﻿NORMAS BÁSICAS DE USO DE UNMESSAI
+
+1. Qué hace unmessai
+unmessai vigila las carpetas que elijas y guarda automáticamente una copia
+de cada archivo cuando cambia, para que puedas restaurar versiones
+anteriores tras un borrado o una modificación accidental.
+
+2. Local-first: tus datos no salen de tu equipo
+Todas las copias se guardan en la carpeta de versiones que elijas, en este
+mismo equipo. unmessai no envía datos a internet, no usa la nube y no
+recoge telemetría.
+
+3. Espacio en disco
+Guardar versiones ocupa espacio. unmessai aplica una política de retención
+automática (poda de versiones antiguas), configurable desde la app. Elige
+como carpeta de versiones una unidad con espacio suficiente.
+
+4. No sustituye a una copia de seguridad completa
+Las versiones se guardan en este mismo equipo: si el disco falla o el
+equipo se pierde, se pierden también. Mantén copias de seguridad externas
+para lo importante.
+
+5. Exclusiones por defecto
+Para no versionar ruido, unmessai excluye por defecto carpetas como
+Descargas, Vídeos o Música, los repositorios git (y lo que ignore git),
+y archivos muy grandes. Todo ello es configurable.
+
+6. Software libre, sin garantías
+unmessai se distribuye bajo su licencia de software libre (ver el fichero
+LICENSE del proyecto), tal cual y sin garantías de ningún tipo, en la
+medida en que lo permita la ley.
+
+Si aceptas estas normas, continúa con la instalación.

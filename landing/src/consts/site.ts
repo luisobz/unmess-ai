@@ -11,7 +11,7 @@ export const SITE = {
 
 /** Clave de la etiqueta de descarga por SO dentro de Copy. */
 type DownloadCtaKey = "dlLinux" | "dlMac" | "dlWin";
-type DownloadAltKey = "dlLinuxAlt" | "dlMacAlt";
+type DownloadAltKey = "dlLinuxAlt" | "dlMacAlt" | "dlWinAlt";
 
 /** Versión publicada inyectada por Vite desde el .version raíz del repo. */
 declare const __UNMESSAI_VERSION_RAW__: string;
@@ -43,6 +43,7 @@ export const ASSET_FILES = {
   macArmTar: `unmessai-${RELEASE_VERSION}-darwin-arm64.tar.gz`,
   macIntelTar: `unmessai-${RELEASE_VERSION}-darwin-amd64.tar.gz`,
   winZip: `unmessai-${RELEASE_VERSION}-windows-amd64.zip`,
+  winSetup: `unmessai-setup-${RELEASE_VERSION}.exe`,
 } as const;
 
 export const DOWNLOADS: Download[] = [
@@ -57,8 +58,9 @@ export const DOWNLOADS: Download[] = [
     altKey: "dlMacAlt", altHref: `${REL}/unmessai-v${V}-darwin-amd64.tar.gz`,
   },
   {
-    os: "windows", name: "Windows", fmt: "Windows 10/11 · .zip", ctaKey: "dlWin",
-    href: `${REL}/unmessai-v${V}-windows-amd64.zip`,
+    os: "windows", name: "Windows", fmt: "Windows 10/11 · instalador .exe", ctaKey: "dlWin",
+    href: `${REL}/unmessai-setup-v${V}.exe`,
+    altKey: "dlWinAlt", altHref: `${REL}/unmessai-v${V}-windows-amd64.zip`,
   },
 ];
 

@@ -216,3 +216,91 @@ func TestDaemonFlushOnShutdown(t *testing.T) {
 		t.Errorf("el flush del apagado no versionó el fichero pendiente (ok=%v, c=%q)", ok, c)
 	}
 }
+
+// TestDaemonFlushAndReload cubre las dos peticiones externas del bucle:
+// RequestFlush (versionar ya lo pendiente, sin esperar el debounce) y
+// RequestReload (aplicar una config nueva en caliente, sin reiniciar).
+func TestDaemonFlushAndReload(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("UNMESSAI_HOME", home)
+	prefix := filepath.Join(home, "UnmessaiBackups")
+
+	vigilada := filepath.Join(home, "vigilada")
+	extra := filepath.Join(home, "extra")
+	for _, d := range []string{vigilada, extra} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	cfg := config.Default()
+	cfg.Prefix = "~/UnmessaiBackups"
+	cfg.IncludedPaths = []string{"~/vigilada"}
+	cfg.ExcludedPaths = nil
+	cfg.GitignoreAware = false
+
+	st := store.New(prefix, home)
+
+	var rt *Runtime
+	ready := make(chan struct{})
+	opts := Options{
+		Logger: log.New(io.Discard, "", 0),
+		// Debounce enorme: solo RequestFlush (o el apagado) puede versionar.
+		Debounce:          time.Hour,
+		RetentionInterval: time.Hour,
+		Hook: func(ctx context.Context, r *Runtime) error {
+			rt = r
+			close(ready)
+			return nil
+		},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	runErr := make(chan error, 1)
+	go func() { runErr <- Run(ctx, cfg, opts) }()
+
+	select {
+	case <-ready:
+	case <-time.After(5 * time.Second):
+		t.Fatal("el daemon no llegó a estar listo")
+	}
+
+	// --- RequestFlush: con debounce de una hora, solo el flush versiona. ---
+	writeFile(t, filepath.Join(vigilada, "uno.txt"), "v1")
+	testutil.Eventually(t, 10*time.Second, 50*time.Millisecond, func() bool {
+		// El watcher necesita un instante en entregar el evento: flush en cada
+		// intento hasta que el fichero aparezca versionado.
+		if _, err := rt.RequestFlush(context.Background()); err != nil {
+			t.Fatalf("RequestFlush: %v", err)
+		}
+		_, ok := versionedContent(t, st, "vigilada/uno.txt")
+		return ok
+	}, "flush bajo demanda versiona vigilada/uno.txt")
+
+	// --- RequestReload: añadir ~/extra a las rutas vigiladas. Antes de la
+	// recarga sus eventos ni entran al watcher, así que verlo versionado
+	// prueba que el pipeline nuevo está activo con la config nueva. ---
+	ncfg := *cfg
+	ncfg.IncludedPaths = []string{"~/vigilada", "~/extra"}
+	rt.RequestReload(ncfg)
+
+	testutil.Eventually(t, 10*time.Second, 100*time.Millisecond, func() bool {
+		writeFile(t, filepath.Join(extra, "dos.txt"), "v2")
+		if _, err := rt.RequestFlush(context.Background()); err != nil {
+			t.Fatalf("RequestFlush tras reload: %v", err)
+		}
+		_, ok := versionedContent(t, st, "extra/dos.txt")
+		return ok
+	}, "tras la recarga se versiona extra/dos.txt")
+
+	cancel()
+	select {
+	case err := <-runErr:
+		if err != nil {
+			t.Errorf("Run devolvió error al apagar: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("el daemon no se apagó")
+	}
+}

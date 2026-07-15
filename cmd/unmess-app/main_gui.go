@@ -88,12 +88,13 @@ type appState struct {
 }
 
 // urlFor construye la URL de la ventana para una ruta relativa del store. Sin
-// ruta, la raíz; con ruta, el enrutado hash que la UI ya entiende.
+// ruta, la raíz; con ruta, el enrutado hash que la UI ya entiende. ?app=1
+// indica a la UI que corre dentro de la app nativa (oculta la marca duplicada).
 func (a *appState) urlFor(rel string) string {
 	if rel == "" {
-		return a.client.baseURL + "/"
+		return a.client.baseURL + "/?app=1"
 	}
-	return a.client.baseURL + "/#/file/" + rel
+	return a.client.baseURL + "/?app=1#/file/" + rel
 }
 
 func newAppState(client *daemonClient, spawned *exec.Cmd, background bool) *appState {
@@ -113,7 +114,7 @@ func (a *appState) run() error {
 	a.notif = notifications.New()
 
 	a.app = application.New(application.Options{
-		Name:        "unmess",
+		Name:        "unmessai",
 		Description: "Protección automática y versionado de tus archivos",
 		Icon:        iconPNG,
 		SingleInstance: &application.SingleInstanceOptions{
@@ -136,7 +137,7 @@ func (a *appState) run() error {
 
 	a.window = a.app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:             "main",
-		Title:            "unmess",
+		Title:            "unmessai",
 		Width:            1180,
 		Height:           780,
 		MinWidth:         760,
@@ -147,8 +148,11 @@ func (a *appState) run() error {
 	})
 
 	// Cerrar la ventana la oculta a la bandeja en vez de terminar la app; solo
-	// "Salir" en el menú de bandeja termina de verdad.
-	a.window.OnWindowEvent(events.Common.WindowClosing, func(e *application.WindowEvent) {
+	// "Salir" en el menú de bandeja termina de verdad. Tiene que ser un hook,
+	// no OnWindowEvent: los listeners corren en goroutines junto al listener
+	// interno de Wails que destruye la ventana, y ese Cancel llega tarde en
+	// Windows; los hooks corren síncronos antes y su Cancel sí corta el cierre.
+	a.window.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
 		if a.quitting.Load() {
 			return
 		}
@@ -175,10 +179,10 @@ func (a *appState) run() error {
 func (a *appState) buildTray() {
 	a.tray = a.app.SystemTray.New()
 	a.tray.SetIcon(trayActivePNG)
-	a.tray.SetTooltip("unmess — protección activa")
+	a.tray.SetTooltip("unmessai — protección activa")
 
 	menu := a.app.NewMenu()
-	menu.Add("Abrir unmess").OnClick(func(_ *application.Context) {
+	menu.Add("Abrir unmessai").OnClick(func(_ *application.Context) {
 		a.showWindow()
 	})
 	menu.AddSeparator()
@@ -209,7 +213,7 @@ func (a *appState) showWindow() {
 // onPauseClicked reacciona al toggle del menú: aplica el estado en el daemon.
 func (a *appState) onPauseClicked(paused bool) {
 	if err := a.client.setPaused(paused); err != nil {
-		a.sendNotification("unmess", "No se pudo cambiar el estado: "+err.Error())
+		a.sendNotification("unmessai", "No se pudo cambiar el estado: "+err.Error())
 		// Revertimos el check visual si falló.
 		a.setPauseMenuState(!paused)
 		return
@@ -234,10 +238,10 @@ func (a *appState) applyTrayState(paused bool) {
 	}
 	if paused {
 		a.tray.SetIcon(trayPausedPNG)
-		a.tray.SetTooltip("unmess — protección EN PAUSA")
+		a.tray.SetTooltip("unmessai — protección EN PAUSA")
 	} else {
 		a.tray.SetIcon(trayActivePNG)
-		a.tray.SetTooltip("unmess — protección activa")
+		a.tray.SetTooltip("unmessai — protección activa")
 	}
 }
 
@@ -248,7 +252,7 @@ func (a *appState) flashTrayError() {
 		return
 	}
 	a.tray.SetIcon(trayErrorPNG)
-	a.tray.SetTooltip("unmess — error")
+	a.tray.SetTooltip("unmessai — error")
 	time.AfterFunc(5*time.Second, func() { a.applyTrayState(a.curPaused.Load()) })
 }
 
@@ -261,7 +265,7 @@ func (a *appState) onDaemonEvent(ev daemon.Event) {
 	case daemon.EventRestored:
 		a.sendNotification("Restauración completada", ev.Path)
 	case daemon.EventError:
-		a.sendNotification("unmess: error", ev.Message)
+		a.sendNotification("unmessai: error", ev.Message)
 		a.flashTrayError()
 	case daemon.EventPaused:
 		a.setPauseMenuState(true)

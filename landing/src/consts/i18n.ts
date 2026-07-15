@@ -39,6 +39,7 @@ export interface Copy {
   dlWin: string;
   dlLinuxAlt: string;
   dlMacAlt: string;
+  dlWinAlt: string;
   dlFoot: string;
   dlAll: string;
   supTitle: string;
@@ -89,9 +90,10 @@ export const DICT: Record<Lang, Copy> = {
     osTag: "Detectado",
     dlLinux: "Descargar .deb",
     dlMac: "Descargar · Apple Silicon",
-    dlWin: "Descargar .zip",
+    dlWin: "Descargar instalador",
     dlLinuxAlt: "Binarios portables (.tar.gz)",
     dlMacAlt: "Mac Intel (x86-64)",
+    dlWinAlt: "Binarios portables (.zip)",
     dlFoot: "Versión actual {version}.",
     dlAll: "Todas las descargas y notas de la versión",
     supTitle: "¿Te resulta útil?",
@@ -141,9 +143,10 @@ export const DICT: Record<Lang, Copy> = {
     osTag: "Detected",
     dlLinux: "Download .deb",
     dlMac: "Download · Apple Silicon",
-    dlWin: "Download .zip",
+    dlWin: "Download installer",
     dlLinuxAlt: "Portable binaries (.tar.gz)",
     dlMacAlt: "Mac Intel (x86-64)",
+    dlWinAlt: "Portable binaries (.zip)",
     dlFoot: "Current version {version}.",
     dlAll: "All downloads and release notes",
     supTitle: "Finding it useful?",

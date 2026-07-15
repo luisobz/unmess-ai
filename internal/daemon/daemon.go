@@ -37,6 +37,55 @@ type Runtime struct {
 
 	// pause guarda el estado de vigilancia (ver IsPaused/SetPaused en events.go).
 	pause pauseState
+
+	// reloadCh y flushCh comunican peticiones externas (API) con el bucle del
+	// daemon. Los inicializa Run; en un Runtime construido a mano (tests) las
+	// peticiones se rechazan sin bloquear.
+	reloadCh chan config.Config
+	flushCh  chan flushRequest
+}
+
+type flushRequest struct{ reply chan int }
+
+// RequestFlush pide al bucle del daemon que versione ya los cambios pendientes
+// del debounce y devuelve cuántos había en cola. Seguro desde otras goroutines.
+func (rt *Runtime) RequestFlush(ctx context.Context) (int, error) {
+	if rt.flushCh == nil {
+		return 0, errors.New("el daemon no está en ejecución")
+	}
+	req := flushRequest{reply: make(chan int, 1)}
+	select {
+	case rt.flushCh <- req:
+	case <-ctx.Done():
+		return 0, ctx.Err()
+	}
+	select {
+	case n := <-req.reply:
+		return n, nil
+	case <-ctx.Done():
+		return 0, ctx.Err()
+	}
+}
+
+// RequestReload aplica en caliente una nueva configuración: el bucle vacía lo
+// pendiente y reconstruye watcher, filtros, debounce y retención. El prefix del
+// store y el puerto HTTP se fijan al arrancar y quedan fuera (requieren
+// reiniciar). Si había una recarga pendiente sin atender, la sustituye.
+func (rt *Runtime) RequestReload(cfg config.Config) {
+	if rt.reloadCh == nil {
+		return
+	}
+	for {
+		select {
+		case rt.reloadCh <- cfg:
+			return
+		default:
+			select {
+			case <-rt.reloadCh:
+			default:
+			}
+		}
+	}
 }
 
 // Options configura la ejecución del daemon.
@@ -55,7 +104,9 @@ type Options struct {
 }
 
 // Run arranca el daemon y bloquea hasta que ctx se cancela. Realiza un flush de
-// los cambios pendientes antes de salir.
+// los cambios pendientes antes de salir. Ante una petición de recarga (ver
+// RequestReload) reconstruye el pipeline con la nueva configuración sin tirar
+// el proceso ni el servidor de API.
 func Run(ctx context.Context, cfg *config.Config, opts Options) error {
 	logger := opts.Logger
 	if logger == nil {
@@ -69,29 +120,64 @@ func Run(ctx context.Context, cfg *config.Config, opts Options) error {
 	if err != nil {
 		return err
 	}
+	// El prefix del store se fija al arrancar: cambiarlo requiere reiniciar
+	// (el resto de la config se aplica en caliente vía RequestReload).
 	prefix, err := cfg.PrefixExpanded()
-	if err != nil {
-		return err
-	}
-	included, err := cfg.IncludedPathsExpanded()
-	if err != nil {
-		return err
-	}
-	excluded, err := cfg.ExcludedPathsExpanded()
 	if err != nil {
 		return err
 	}
 
 	st := store.New(prefix, baseDir)
-	rt := &Runtime{Config: cfg, Store: st, BaseDir: baseDir, Logger: logger, Events: NewBroker()}
+	rt := &Runtime{
+		Config: cfg, Store: st, BaseDir: baseDir, Logger: logger, Events: NewBroker(),
+		reloadCh: make(chan config.Config, 1),
+		flushCh:  make(chan flushRequest),
+	}
 
-	flt := newFilter(cfg, prefix, excluded, baseDir)
+	if opts.Hook != nil {
+		if err := opts.Hook(ctx, rt); err != nil {
+			return fmt.Errorf("hook de arranque: %w", err)
+		}
+	}
+
+	snap := *cfg
+	for {
+		next, err := rt.runPipeline(ctx, snap, opts, prefix)
+		if err != nil {
+			return err
+		}
+		if next == nil {
+			logger.Printf("apagado limpio")
+			return nil
+		}
+		snap = *next
+		logger.Printf("configuración recargada en caliente")
+	}
+}
+
+// runPipeline construye watcher, filtros, debounce y retención a partir de una
+// instantánea de la config y ejecuta el bucle de eventos. Devuelve (nil, nil)
+// en apagado limpio, o la nueva config cuando llega una petición de recarga.
+func (rt *Runtime) runPipeline(ctx context.Context, cfg config.Config, opts Options, prefix string) (*config.Config, error) {
+	logger := rt.Logger
+	st := rt.Store
+
+	included, err := (&cfg).IncludedPathsExpanded()
+	if err != nil {
+		return nil, err
+	}
+	excluded, err := (&cfg).ExcludedPathsExpanded()
+	if err != nil {
+		return nil, err
+	}
+
+	flt := newFilter(&cfg, prefix, excluded, rt.BaseDir)
 	gi := gitignore.New(cfg.GitignoreAware)
 
 	exclude := func(dir string) bool { return flt.excludeDir(dir) }
 	w, err := watcher.New(exclude)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer w.Close()
 
@@ -105,12 +191,6 @@ func Run(ctx context.Context, cfg *config.Config, opts Options) error {
 		}
 	}
 	logger.Printf("vigilando %d ruta(s); store en %s", len(included), prefix)
-
-	if opts.Hook != nil {
-		if err := opts.Hook(ctx, rt); err != nil {
-			return fmt.Errorf("hook de arranque: %w", err)
-		}
-	}
 
 	delay := opts.Debounce
 	if delay <= 0 {
@@ -183,13 +263,24 @@ func Run(ctx context.Context, cfg *config.Config, opts Options) error {
 		select {
 		case <-ctx.Done():
 			flush(deb.Flush())
-			logger.Printf("apagado limpio")
-			return nil
+			return nil, nil
+
+		case newCfg := <-rt.reloadCh:
+			// Antes de reconstruir, lo pendiente se versiona con los filtros
+			// vigentes: nada se pierde por recargar.
+			flush(deb.Flush())
+			return &newCfg, nil
+
+		case req := <-rt.flushCh:
+			keys := deb.Flush()
+			flush(keys)
+			rearm()
+			req.reply <- len(keys)
 
 		case ev, ok := <-w.Events():
 			if !ok {
 				flush(deb.Flush())
-				return nil
+				return nil, nil
 			}
 			// Con la vigilancia pausada se ignoran los eventos de entrada: los
 			// cambios de este intervalo no se versionan (esa es la intención de

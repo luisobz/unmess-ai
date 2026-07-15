@@ -2,6 +2,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="icon" href="/icon.svg" />
 <link rel="stylesheet" href="/styles.css" />
+<script>
+  // La app nativa carga la UI con ?app=1: ahí la marca sobra (ya está en la
+  // ventana). Inline y antes del render para que el wordmark no parpadee.
+  if (new URLSearchParams(location.search).has("app"))
+    document.documentElement.classList.add("app-mode");
+</script>
 
 <a class="skip-link" href="#main" data-i18n="skip_to_content">Saltar al contenido</a>
 
@@ -41,6 +47,10 @@
 <div class="layout">
   <aside class="sidebar" aria-label="Ficheros">
     <div class="sidebar-controls">
+      <button type="button" id="btn-flush" class="btn btn-flush">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4.5 13.5h5L10 22l8.5-11.5h-5L13 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        <span data-i18n="flush_now">Versionar ahora</span>
+      </button>
       <label class="visually-hidden" for="search" data-i18n="search_files_label">Buscar ficheros</label>
       <div class="search-wrap">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>

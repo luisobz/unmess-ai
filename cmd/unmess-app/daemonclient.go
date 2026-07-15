@@ -102,6 +102,7 @@ func startDaemon() (*exec.Cmd, error) {
 	cmd := exec.Command(path)
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
+	hideSpawnedConsole(cmd)
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("arrancando %s: %w", path, err)
 	}

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -48,13 +49,26 @@ type Config struct {
 
 // Default devuelve la configuración por defecto del ADR-0003.
 func Default() *Config {
+	excluded := []string{"~/Downloads", "~/Descargas", "~/Videos", "~/Vídeos", "~/Music", "~/Música"}
+	ignore := []string{".config", "**/*.log", "**/cache/**"}
+	switch runtime.GOOS {
+	case "windows":
+		// AppData es estado interno de aplicaciones (cachés de navegador,
+		// WebView2, etc.): churn constante y ficheros bloqueados, no
+		// documentos del usuario. ntuser.dat* es el registro del perfil.
+		excluded = append(excluded, `~/AppData`)
+		ignore = append(ignore, "ntuser.dat*")
+	case "darwin":
+		// El equivalente en macOS es ~/Library.
+		excluded = append(excluded, "~/Library")
+	}
 	return &Config{
 		Prefix:          "~/UnmessaiBackups",
 		DebounceSeconds: 60,
 		IncludedPaths:   []string{"~"},
-		ExcludedPaths:   []string{"~/Downloads", "~/Descargas", "~/Videos", "~/Vídeos", "~/Music", "~/Música"},
+		ExcludedPaths:   excluded,
 		ExcludeNames:    []string{".git", "node_modules", "dist", "build", ".cache", ".venv", "target", "__pycache__"},
-		IgnorePatterns:  []string{".config", "**/*.log", "**/cache/**"},
+		IgnorePatterns:  ignore,
 		GitignoreAware:  true,
 		MaxFileSizeMB:   100,
 		Retention: Retention{

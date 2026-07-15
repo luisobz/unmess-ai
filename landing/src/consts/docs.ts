@@ -61,7 +61,8 @@ tar -xzf ${A.macArmTar}
 sudo install unmess unmessd /usr/local/bin/</code></pre>
 <p>Para vigilar carpetas arbitrarias, macOS pide conceder <strong>Acceso Total al Disco</strong> a <code>unmessd</code> en <em>Ajustes del Sistema → Privacidad y Seguridad</em>. Arranca el daemon con <code>unmess service install</code> y abre la interfaz con <code>unmess ui --browser</code>.</p>
 <h3>Windows</h3>
-<p>Descarga el <code>.zip</code>, descomprímelo (Windows 10/11 traen <code>curl</code> y <code>tar</code>) y ejecuta desde la carpeta <code>windows-amd64\\</code>:</p>
+<p>Descarga y ejecuta el instalador <a href="${B}/${A.winSetup}"><code>${A.winSetup}</code></a>. No pide administrador: durante la instalación eliges qué carpeta vigilar y dónde guardar las versiones, y deja la app en la bandeja del sistema (con autoarranque al iniciar sesión).</p>
+<p>Alternativa portable, sin instalador: descarga el <code>.zip</code>, descomprímelo (Windows 10/11 traen <code>curl</code> y <code>tar</code>) y ejecuta desde la carpeta <code>windows-amd64\\</code>:</p>
 <pre><code>curl -LO ${B}/${A.winZip}
 tar -xf ${A.winZip}
 windows-amd64\\unmess.exe service install
@@ -234,7 +235,8 @@ tar -xzf ${A.macArmTar}
 sudo install unmess unmessd /usr/local/bin/</code></pre>
 <p>To watch arbitrary folders, macOS asks you to grant <strong>Full Disk Access</strong> to <code>unmessd</code> in <em>System Settings → Privacy &amp; Security</em>. Start the daemon with <code>unmess service install</code> and open the interface with <code>unmess ui --browser</code>.</p>
 <h3>Windows</h3>
-<p>Download the <code>.zip</code>, unpack it (Windows 10/11 ship <code>curl</code> and <code>tar</code>) and run from the <code>windows-amd64\\</code> folder:</p>
+<p>Download and run the installer <a href="${B}/${A.winSetup}"><code>${A.winSetup}</code></a>. It doesn't ask for admin rights: during installation you pick which folder to watch and where to store versions, and it leaves the app in the system tray (auto-starting at login).</p>
+<p>Portable alternative, no installer: download the <code>.zip</code>, unpack it (Windows 10/11 ship <code>curl</code> and <code>tar</code>) and run from the <code>windows-amd64\\</code> folder:</p>
 <pre><code>curl -LO ${B}/${A.winZip}
 tar -xf ${A.winZip}
 windows-amd64\\unmess.exe service install

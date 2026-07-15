@@ -25,6 +25,10 @@ jobs:
           GOOS=darwin  GOARCH=arm64 CGO_ENABLED=0 go build ./...
           GOOS=darwin  GOARCH=amd64 CGO_ENABLED=0 go build ./...
           GOOS=linux   GOARCH=amd64 CGO_ENABLED=0 go build ./...
+      # La app nativa de Windows (Wails v3) no necesita CGO: WebView2 va por
+      # syscalls. Este check evita que el release vuelva a empaquetar el stub.
+      - name: Cross-compile app nativa Windows (tags gui, sin CGO)
+        run: GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -tags gui ./cmd/unmess-app
 
   # Compila la app nativa (Wails v3, CGO) en Linux con GTK3/WebKit2GTK-4.1.
   gui-linux:

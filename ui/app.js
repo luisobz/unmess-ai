@@ -148,6 +148,17 @@ async function togglePause() {
   }
 }
 
+// flushNow fuerza el versionado inmediato de los cambios pendientes del
+// debounce ("Versionar ahora"), sin esperar a que venza el reposo.
+async function flushNow() {
+  try {
+    const j = await apiJSON("/api/flush", { method: "POST" });
+    toast(j.flushed > 0 ? t("flush_done", { n: j.flushed }) : t("flush_none"));
+  } catch (e) {
+    toast(t("flush_error", { msg: e.message }), "error");
+  }
+}
+
 // --- lista de ficheros ---
 
 async function refreshFiles(preserveSelection = true) {
@@ -818,6 +829,7 @@ async function init() {
   $("btn-copy-path").addEventListener("click", copySelectedPath);
 
   $("btn-pause").addEventListener("click", togglePause);
+  $("btn-flush").addEventListener("click", flushNow);
   $("btn-activity").addEventListener("click", () => { openOverlay("activity"); refreshJournal(); });
   $("btn-settings").addEventListener("click", openSettings);
   $("btn-about").addEventListener("click", () => openOverlay("about"));

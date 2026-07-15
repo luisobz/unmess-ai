@@ -609,21 +609,24 @@ func (s *Server) handleConfigPut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// restart_required: cualquier cambio salvo en [retention]. La retención se
-	// aplica en caliente a la poda bajo demanda (POST /api/prune lee la config
-	// viva); el resto de campos requieren reiniciar el daemon para tener efecto.
-	restart := nonRetentionChanged(old, *cur)
+	// El daemon aplica en caliente todo salvo lo estructural: el prefix del
+	// store y el puerto HTTP se fijan al arrancar el proceso, así que solo
+	// esos dos exigen reinicio.
+	restart := old.Prefix != cur.Prefix || old.UI.Port != cur.UI.Port
+	if configChanged(old, *cur) {
+		s.rt.RequestReload(*cur)
+	}
 	writeJSON(w, http.StatusOK, map[string]bool{"restart_required": restart})
 }
 
-// nonRetentionChanged indica si cambió algún campo que afecta al daemon en
-// ejecución (todo menos la sección [retention]).
-func nonRetentionChanged(a, b config.Config) bool {
+// configChanged indica si cambió algún campo de la configuración.
+func configChanged(a, b config.Config) bool {
 	if a.Prefix != b.Prefix ||
 		a.DebounceSeconds != b.DebounceSeconds ||
 		a.GitignoreAware != b.GitignoreAware ||
 		a.MaxFileSizeMB != b.MaxFileSizeMB ||
-		a.UI.Port != b.UI.Port {
+		a.UI.Port != b.UI.Port ||
+		a.Retention != b.Retention {
 		return true
 	}
 	if !slices.Equal(a.IncludedPaths, b.IncludedPaths) ||
@@ -633,6 +636,24 @@ func nonRetentionChanged(a, b config.Config) bool {
 		return true
 	}
 	return false
+}
+
+// handleFlush versiona inmediatamente los cambios pendientes del debounce
+// ("versionar ahora" en la UI). Muta estado, así que exige origen local.
+func (s *Server) handleFlush(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeErr(w, http.StatusMethodNotAllowed, "método no permitido")
+		return
+	}
+	if !s.requireLocal(w, r) {
+		return
+	}
+	n, err := s.rt.RequestFlush(r.Context())
+	if err != nil {
+		writeErr(w, http.StatusServiceUnavailable, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]int{"flushed": n})
 }
 
 // pruneRequest es el cuerpo de POST /api/prune.

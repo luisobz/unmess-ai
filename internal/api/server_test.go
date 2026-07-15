@@ -349,7 +349,7 @@ func TestConfigGetPut(t *testing.T) {
 		t.Fatalf("cambio de retención no debería requerir reinicio")
 	}
 
-	// PUT cambiando debounce → restart_required=true
+	// PUT cambiando debounce → se aplica en caliente, restart_required=false
 	dto.DebounceSeconds = 5
 	b, _ = json.Marshal(dto)
 	rec = do(t, srv, "PUT", "/api/config", reqOpts{token: srv.Token(), origin: "http://127.0.0.1:48111", body: string(b)})
@@ -357,8 +357,20 @@ func TestConfigGetPut(t *testing.T) {
 		Restart bool `json:"restart_required"`
 	}
 	json.Unmarshal(rec.Body.Bytes(), &r2)
-	if !r2.Restart {
-		t.Fatalf("cambio de debounce debería requerir reinicio")
+	if r2.Restart {
+		t.Fatalf("cambio de debounce se aplica en caliente: no debería requerir reinicio")
+	}
+
+	// PUT cambiando prefix (raíz del store) → estructural, restart_required=true
+	dto.Prefix = dto.Prefix + "-otro"
+	b, _ = json.Marshal(dto)
+	rec = do(t, srv, "PUT", "/api/config", reqOpts{token: srv.Token(), origin: "http://127.0.0.1:48111", body: string(b)})
+	var r3 struct {
+		Restart bool `json:"restart_required"`
+	}
+	json.Unmarshal(rec.Body.Bytes(), &r3)
+	if !r3.Restart {
+		t.Fatalf("cambio de prefix debería requerir reinicio")
 	}
 }
 

@@ -138,6 +138,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("/api/journal", s.protected(s.handleJournal))
 	mux.HandleFunc("/api/config", s.protected(s.handleConfig))
 	mux.HandleFunc("/api/prune", s.protected(s.handlePrune))
+	mux.HandleFunc("/api/flush", s.protected(s.handleFlush))
 
 	return mux
 }
