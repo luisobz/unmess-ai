@@ -7,7 +7,7 @@ import path from "node:path";
 const versionRaw = fs.readFileSync(path.resolve("../.version"), "utf-8").trim();
 
 export default defineConfig({
-  site: "https://unmess.ai",
+  site: "https://unmessai.com",
   integrations: [sitemap()],
   build: { inlineStylesheets: "auto" },
   vite: {

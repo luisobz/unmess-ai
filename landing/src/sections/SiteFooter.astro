@@ -21,6 +21,7 @@ const { copy } = Astro.props;
     <p class="license">
       <span data-i18n="license">{copy.license}</span><span data-i18n="privacy">{copy.privacy}</span>
     </p>
+    <p class="credits">Creado por <a href="https://github.com/luisobz" target="_blank" rel="noopener">luisobz</a></p>
   </div>
 </footer>
 
@@ -38,4 +39,7 @@ const { copy } = Astro.props;
     border-radius: 2px; padding: 1px 6px; margin-left: 6px; vertical-align: middle;
   }
   .license { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); }
+  .credits { margin-top: 12px; font-size: 0.85rem; }
+  .credits a { color: var(--text); font-weight: 600; }
+  .credits a:hover { color: var(--accent); }
 </style>

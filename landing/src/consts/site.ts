@@ -6,7 +6,7 @@ import type { Lang } from "@/consts/i18n";
 
 export const SITE = {
   name: "unmessai",
-  url: "https://unmess.ai",
+  url: "https://unmessai.com",
 } as const;
 
 /** Clave de la etiqueta de descarga por SO dentro de Copy. */

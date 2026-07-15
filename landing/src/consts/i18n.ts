@@ -96,9 +96,9 @@ export const DICT: Record<Lang, Copy> = {
     dlWinAlt: "Binarios portables (.zip)",
     dlFoot: "Versión actual {version}.",
     dlAll: "Todas las descargas y notas de la versión",
-    supTitle: "¿Te resulta útil?",
+    supTitle: "Si quieres dar una propina",
     supText:
-      "unmessai es gratuito. Si quieres apoyar su desarrollo, cualquier ayuda es bienvenida.",
+      "unmessai es un servicio que mantengo y mejoro constantemente. Si te aporta valor, puedes dejar una propina para apoyar su desarrollo.",
     footDl: "Descargas",
     footHow: "Cómo funciona",
     footDocs: "Documentación",
@@ -149,9 +149,9 @@ export const DICT: Record<Lang, Copy> = {
     dlWinAlt: "Portable binaries (.zip)",
     dlFoot: "Current version {version}.",
     dlAll: "All downloads and release notes",
-    supTitle: "Finding it useful?",
+    supTitle: "Leave a tip",
     supText:
-      "unmessai is free. If you'd like to support its development, any help is welcome.",
+      "unmessai is a service I build and improve constantly. If it brings you value, consider leaving a tip to support its development.",
     footDl: "Downloads",
     footHow: "How it works",
     footDocs: "Documentation",
