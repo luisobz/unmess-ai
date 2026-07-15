@@ -172,7 +172,6 @@ jobs:
           generate_release_notes: true
 
       - name: Publicar en Snap Store
-        if: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS != '' }}
         uses: snapcore/action-publish@v1
         with:
           snap: dist/unmessai_*.snap
