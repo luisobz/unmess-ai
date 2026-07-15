@@ -28,6 +28,20 @@ export interface DocsPage {
 const V = RELEASE_VERSION_RAW; // p. ej. "0.2.0"
 const B = RELEASE_ASSETS_BASE; // base de descarga de la release actual
 
+// Logo de plataforma para los encabezados de la sección Instalación. Se usan
+// los PNG monocromos de /public/icons (los mismos que en Descargas); en tema
+// oscuro se invierten por CSS. Se reutilizan en ES y EN vía h3p().
+const PICON = {
+  debian: "linux",
+  tar: "linux",
+  mac: "mac",
+  win: "windows",
+} as const;
+
+// Encabezado de plataforma con logo a la izquierda.
+const h3p = (kind: keyof typeof PICON, title: string): string =>
+  `<h3 class="h3p"><img class="h3p__img" src="/icons/${PICON[kind]}.png" alt="" aria-hidden="true" width="22" height="22" />${title}</h3>`;
+
 export const DOCS: Record<"es" | "en", DocsPage> = {
   es: {
     pageTitle: "Documentación",
@@ -54,24 +68,24 @@ export const DOCS: Record<"es" | "en", DocsPage> = {
       {
         id: "install",
         title: "Instalación",
-        html: `<p>Descarga el paquete para tu sistema desde la <a href="/#descargas">página principal</a> o desde la terminal. Los comandos usan la última versión publicada, <code>${V}</code>.</p>
-<h3>Linux (Debian / Ubuntu)</h3>
+        html: `<p>Descarga el paquete para tu sistema desde la <a href="/#descargas">página principal</a> o desde la terminal. Los comandos usan la última versión publicada, <code class="ver">${V}</code>.</p>
+${h3p("debian", "Linux (Debian / Ubuntu)")}
 <p>El <code>.deb</code> instala el CLI, el daemon y la app nativa (icono en la bandeja y ventana propia), y configura el autoarranque.</p>
 <pre><code>curl -LO ${B}/${A.deb}
 sudo apt install ./${A.deb}</code></pre>
-<p>La app aparece en el lanzador como <strong>unmessai</strong> y se inicia con la sesión, mostrando su icono en la barra superior. También puedes abrirla con <code>unmess ui</code>.</p>
-<h3>Linux (otras distros · binarios)</h3>
+<div class="note success">La app aparece en el lanzador como <strong>unmessai</strong> y se inicia con la sesión, mostrando su icono en la barra superior. También puedes abrirla con <code>unmess ui</code>.</div>
+${h3p("tar", "Linux (otras distros · binarios)")}
 <p>Descarga el <code>.tar.gz</code>, extráelo y copia los binarios al <code>PATH</code>. La app con ventana solo se compila para el <code>.deb</code>; con el tarball usas el CLI y la interfaz web local.</p>
 <pre><code>curl -LO ${B}/${A.linuxTar}
 tar -xzf ${A.linuxTar}
 sudo install unmess unmessd /usr/local/bin/</code></pre>
-<h3>macOS</h3>
+${h3p("mac", "macOS")}
 <p>Descarga el <code>.tar.gz</code> de tu chip (Apple Silicon o Intel), extráelo e instala los binarios:</p>
 <pre><code>curl -LO ${B}/${A.macArmTar}   # Intel: ${A.macIntelTar}
 tar -xzf ${A.macArmTar}
 sudo install unmess unmessd /usr/local/bin/</code></pre>
-<p>Para vigilar carpetas arbitrarias, macOS pide conceder <strong>Acceso Total al Disco</strong> a <code>unmessd</code> en <em>Ajustes del Sistema → Privacidad y Seguridad</em>. Arranca el daemon con <code>unmess service install</code> y abre la interfaz con <code>unmess ui --browser</code>.</p>
-<h3>Windows</h3>
+<div class="note">Para vigilar carpetas arbitrarias, macOS pide conceder <strong>Acceso Total al Disco</strong> a <code>unmessd</code> en <em>Ajustes del Sistema → Privacidad y Seguridad</em>. Arranca el daemon con <code>unmess service install</code> y abre la interfaz con <code>unmess ui --browser</code>.</div>
+${h3p("win", "Windows")}
 <p>Descarga y ejecuta el instalador <a href="${B}/${A.winSetup}"><code>${A.winSetup}</code></a>. No pide administrador: durante la instalación eliges qué carpeta vigilar y dónde guardar las versiones, y deja la app en la bandeja del sistema (con autoarranque al iniciar sesión).</p>
 <p>Alternativa portable, sin instalador: descarga el <code>.zip</code>, descomprímelo (Windows 10/11 traen <code>curl</code> y <code>tar</code>) y ejecuta desde la carpeta <code>windows-amd64\\</code>:</p>
 <pre><code>curl -LO ${B}/${A.winZip}
@@ -222,31 +236,32 @@ unmess config set retention.max_versions 30</code></pre>`,
       {
         id: "install",
         title: "Installation",
-        html: `<p>Download the package for your system from the <a href="/#descargas">home page</a> or from the terminal. The commands use the latest published version, <code>${V}</code>.</p>
-<h3>Linux (Debian / Ubuntu)</h3>
+        html: `<p>Download the package for your system from the <a href="/#descargas">home page</a> or from the terminal. The commands use the latest published version, <code class="ver">${V}</code>.</p>
+${h3p("debian", "Linux (Debian / Ubuntu)")}
 <p>The <code>.deb</code> installs the CLI, the daemon and the native app (tray icon and its own window), and sets up autostart.</p>
 <pre><code>curl -LO ${B}/${A.deb}
 sudo apt install ./${A.deb}</code></pre>
-<p>The app appears in the launcher as <strong>unmessai</strong> and starts with your session, showing its icon in the top bar. You can also open it with <code>unmess ui</code>.</p>
-<h3>Linux (other distros · binaries)</h3>
+<div class="note success">The app appears in the launcher as <strong>unmessai</strong> and starts with your session, showing its icon in the top bar. You can also open it with <code>unmess ui</code>.</div>
+${h3p("tar", "Linux (other distros · binaries)")}
 <p>Download the <code>.tar.gz</code>, extract it and copy the binaries onto your <code>PATH</code>. The windowed app is only built for the <code>.deb</code>; with the tarball you use the CLI and the local web interface.</p>
 <pre><code>curl -LO ${B}/${A.linuxTar}
 tar -xzf ${A.linuxTar}
 sudo install unmess unmessd /usr/local/bin/</code></pre>
-<h3>macOS</h3>
+${h3p("mac", "macOS")}
 <p>Download the <code>.tar.gz</code> for your chip (Apple Silicon or Intel), extract it and install the binaries:</p>
 <pre><code>curl -LO ${B}/${A.macArmTar}   # Intel: ${A.macIntelTar}
 tar -xzf ${A.macArmTar}
 sudo install unmess unmessd /usr/local/bin/</code></pre>
-<p>To watch arbitrary folders, macOS asks you to grant <strong>Full Disk Access</strong> to <code>unmessd</code> in <em>System Settings → Privacy &amp; Security</em>. Start the daemon with <code>unmess service install</code> and open the interface with <code>unmess ui --browser</code>.</p>
-<h3>Windows</h3>
+<div class="note">To watch arbitrary folders, macOS asks you to grant <strong>Full Disk Access</strong> to <code>unmessd</code> in <em>System Settings → Privacy &amp; Security</em>. Start the daemon with <code>unmess service install</code> and open the interface with <code>unmess ui --browser</code>.</div>
+${h3p("win", "Windows")}
 <p>Download and run the installer <a href="${B}/${A.winSetup}"><code>${A.winSetup}</code></a>. It doesn't ask for admin rights: during installation you pick which folder to watch and where to store versions, and it leaves the app in the system tray (auto-starting at login).</p>
 <p>Portable alternative, no installer: download the <code>.zip</code>, unpack it (Windows 10/11 ship <code>curl</code> and <code>tar</code>) and run from the <code>windows-amd64\\</code> folder:</p>
 <pre><code>curl -LO ${B}/${A.winZip}
 tar -xf ${A.winZip}
 windows-amd64\\unmess.exe service install
 windows-amd64\\unmess.exe ui --browser</code></pre>
-<div class="note"><strong>Note:</strong> on first run, unmessai creates its default configuration and starts protecting your home folder (excluding Downloads, Videos, Music, <code>node_modules</code>, etc.).</div>`,
+<div class="note"><strong>Note:</strong> on first run, unmessai creates its default configuration and starts protecting your home folder (excluding Downloads, Videos, Music, <code>node_modules</code>, etc.).</div>
+<div class="note"><strong>Windows notice:</strong> because the binaries aren't signed with a trusted certificate yet, Edge and Chrome show a "This file isn't downloaded often" warning when downloading the installer. Click <strong>Keep</strong> and then <strong>Keep anyway</strong> to continue. This is a standard Windows warning while our app builds reputation.</div>`,
       },
       {
         id: "restore",

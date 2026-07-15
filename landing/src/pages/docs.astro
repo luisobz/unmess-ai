@@ -7,6 +7,19 @@ import { DOCS } from "@/consts/docs";
 
 const landingCopy = DICT[DEFAULT_LANG];
 const docs = DOCS[DEFAULT_LANG];
+
+// Icono por sección (mismo id que la ancla / TOC). Trazo con currentColor para
+// que herede el color del badge y se adapte a claro/oscuro.
+const SECTION_ICONS: Record<string, string> = {
+  what: `<path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z"/><path d="M12 11v5"/><circle cx="12" cy="7.8" r=".9" fill="currentColor" stroke="none"/>`,
+  how: `<path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 12.5l9 5 9-5"/><path d="M3 16.5l9 5 9-5"/>`,
+  install: `<path d="M12 3v11"/><path d="M7.5 10.5 12 15l4.5-4.5"/><path d="M4.5 20h15"/>`,
+  restore: `<path d="M3.5 12a8.5 8.5 0 1 0 2.8-6.3"/><path d="M3 4.5V9h4.5"/><path d="M12 8v4.5l3 1.7"/>`,
+  cli: `<rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M7.5 10l3 2.4-3 2.4"/><path d="M13 15h4"/>`,
+  updates: `<path d="M20.5 12a8.5 8.5 0 1 1-2.5-6"/><path d="M20.5 4v5h-5"/>`,
+  server: `<rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/>`,
+  config: `<path d="M5 21v-6M5 11V3M12 21v-8M12 9V3M19 21v-4M19 13V3"/><path d="M3 15h4M10 9h4M17 17h4"/>`,
+};
 ---
 
 <Layout copy={landingCopy}>
@@ -29,7 +42,12 @@ const docs = DOCS[DEFAULT_LANG];
       {
         docs.sections.map((sec) => (
           <section id={sec.id}>
-            <h2 data-i18n-heading={sec.id}>{sec.title}</h2>
+            <div class="sec-head">
+              <span class="sec-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" set:html={SECTION_ICONS[sec.id] ?? ""} />
+              </span>
+              <h2 data-i18n-heading={sec.id}>{sec.title}</h2>
+            </div>
             <div data-i18n-section={sec.id} set:html={sec.html} />
           </section>
         ))
@@ -48,10 +66,10 @@ const docs = DOCS[DEFAULT_LANG];
   .docs-layout {
     display: grid;
     grid-template-columns: 230px 1fr;
-    gap: 40px;
+    gap: 48px;
     max-width: 1080px;
     margin: 0 auto;
-    padding: 40px 20px 80px;
+    padding: 40px 20px 90px;
   }
   .docs-toc {
     position: sticky;
@@ -90,82 +108,200 @@ const docs = DOCS[DEFAULT_LANG];
   }
   .docs-content section {
     scroll-margin-top: 78px;
-    padding: 26px 0;
+    padding: 34px 0;
     border-top: 1px solid var(--border);
   }
   .docs-content section:first-of-type { border-top: 0; }
-  .docs-content h2 {
-    font-size: 1.45rem;
-    margin: 0 0 .5em;
-    font-weight: 700;
+
+  /* Cabecera de sección: badge con icono + título. */
+  .sec-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 0 0 1.1rem;
   }
-  .docs-content h3 {
-    font-size: 1.08rem;
-    margin: 1.4em 0 .3em;
-    font-weight: 650;
+  .sec-icon {
+    flex: none;
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border-radius: var(--radius-lg);
+    background: var(--doc-accent-soft);
+    color: var(--doc-accent);
+  }
+  .sec-icon svg { width: 22px; height: 22px; }
+  .docs-content h2 {
+    font-size: clamp(1.5rem, 3vw, 1.9rem);
+    margin: 0;
+    font-weight: 750;
+    letter-spacing: -.02em;
+  }
+  .docs-content :global(h3) {
+    font-size: 1.1rem;
+    margin: 1.6em 0 .9em;
+    font-weight: 700;
+    letter-spacing: -.01em;
   }
   .docs-content :global(p) {
     margin: 0 0 1em;
-    line-height: 1.6;
+    line-height: 1.62;
   }
   .docs-content :global(p:last-child) { margin-bottom: 0; }
   .docs-content :global(ol),
   .docs-content :global(ul) {
     margin: 0 0 1em;
     padding-left: 1.3em;
-    line-height: 1.6;
+    line-height: 1.62;
   }
   .docs-content :global(ol li),
   .docs-content :global(ul li) {
-    margin: 0 0 .4em;
+    margin: 0 0 .45em;
   }
+
+  /* Código en línea: chip suave. */
   .docs-content :global(code) {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: .9em;
-    background: var(--surface-2);
-    padding: .12em .4em;
-    border-radius: 3px;
-  }
-  .docs-content :global(pre) {
-    background: var(--text);
-    color: var(--bg);
-    padding: 16px 18px;
+    font-size: .86em;
+    background: var(--doc-chip-bg);
+    color: var(--doc-chip-fg);
+    padding: .12em .42em;
     border-radius: var(--radius);
+    border: 1px solid var(--doc-chip-border);
+  }
+  /* Chip de versión destacado en la intro de Instalación. */
+  .docs-content :global(code.ver) {
+    background: var(--doc-accent-soft);
+    color: var(--doc-accent);
+    border-color: transparent;
+    font-weight: 650;
+  }
+
+  /* Bloque de código: fondo oscuro, gutter de números y botón de copiar.
+     El JS (docs-client.ts) envuelve cada <pre> en .code al cargar la página
+     y tras cada cambio de idioma. */
+  .docs-content :global(.code) {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    margin: 0 0 1.25em;
+    background: var(--doc-code-bg);
+    border: 1px solid var(--doc-code-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .docs-content :global(.code:last-child) { margin-bottom: 0; }
+  .docs-content :global(.code__nums) {
+    flex: none;
+    padding: 15px 12px 15px 16px;
+    text-align: right;
+    color: var(--doc-code-line);
+    user-select: none;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .82rem;
+    line-height: 1.65;
+  }
+  .docs-content :global(.code__nums span) { display: block; }
+  .docs-content :global(.code pre) {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    padding: 15px 48px 15px 4px;
+    background: none;
+    color: var(--doc-code-fg);
     overflow-x: auto;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: .86rem;
-    line-height: 1.5;
-    margin: 0 0 1.2em;
+    font-size: .82rem;
+    line-height: 1.65;
   }
-  .docs-content :global(pre:last-child) { margin-bottom: 0; }
-  .docs-content :global(pre code) {
+  .docs-content :global(.code pre code) {
     background: none;
+    border: 0;
     padding: 0;
     color: inherit;
     font-size: inherit;
+    white-space: pre;
   }
-  .docs-content :global(.cards) {
+  .docs-content :global(.code .c) {
+    color: var(--doc-code-comment);
+    font-style: italic;
+  }
+  .docs-content :global(.code__copy) {
+    position: absolute;
+    top: 8px;
+    right: 8px;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    gap: 16px;
-    margin: 14px 0;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius);
+    background: var(--doc-copy-bg);
+    color: var(--doc-copy-fg);
+    cursor: pointer;
+    transition: background-color .15s ease, color .15s ease;
   }
-  .docs-content :global(.card) {
-    background: var(--surface);
+  .docs-content :global(.code__copy:hover) { background: var(--doc-copy-bg-hover); color: #fff; }
+  .docs-content :global(.code__copy svg) { width: 16px; height: 16px; }
+  .docs-content :global(.code__copy.is-copied) { color: #fff; }
+
+  /* Callouts / notas. Monocromas: superficie gris con icono en tinta. El icono
+     usa mask + background-color para adaptarse a claro/oscuro; .success cambia
+     el glifo (check) frente a la info por defecto. */
+  .docs-content :global(.note) {
+    position: relative;
+    margin: 18px 0;
+    padding: 14px 16px 14px 48px;
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    padding: 18px;
-  }
-  .docs-content :global(.card h3) { margin-top: 0; }
-  .docs-content :global(.note) {
-    background: var(--surface-2);
-    border-left: 3px solid var(--text);
-    padding: 12px 16px;
-    border-radius: 0 var(--radius) var(--radius) 0;
-    margin: 16px 0;
+    background: var(--doc-note-bg);
     color: var(--text-muted);
+    line-height: 1.55;
+  }
+  .docs-content :global(.note::before) {
+    content: "";
+    position: absolute;
+    left: 16px;
+    top: 16px;
+    width: 20px;
+    height: 20px;
+    background-color: var(--doc-note-ico);
+    -webkit-mask: center / contain no-repeat
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill-rule='evenodd' d='M2 12a10 10 0 1 0 20 0 10 10 0 1 0-20 0zM11 10.2h2v6h-2zM10.7 7.6a1.3 1.3 0 1 0 2.6 0 1.3 1.3 0 1 0-2.6 0z'/%3E%3C/svg%3E");
+    mask: center / contain no-repeat
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill-rule='evenodd' d='M2 12a10 10 0 1 0 20 0 10 10 0 1 0-20 0zM11 10.2h2v6h-2zM10.7 7.6a1.3 1.3 0 1 0 2.6 0 1.3 1.3 0 1 0-2.6 0z'/%3E%3C/svg%3E");
   }
   .docs-content :global(.note strong) { color: var(--text); }
+  .docs-content :global(.note code) {
+    background: var(--surface);
+    border-color: var(--border);
+  }
+  .docs-content :global(.note.success::before) {
+    -webkit-mask-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill-rule='evenodd' d='M2 12a10 10 0 1 0 20 0 10 10 0 1 0-20 0zM9.5 16 6.8 13.3 8.3 11.8 9.5 13 15 7.5 16.5 9z'/%3E%3C/svg%3E");
+    mask-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill-rule='evenodd' d='M2 12a10 10 0 1 0 20 0 10 10 0 1 0-20 0zM9.5 16 6.8 13.3 8.3 11.8 9.5 13 15 7.5 16.5 9z'/%3E%3C/svg%3E");
+  }
+
+  /* Encabezados de plataforma (Instalación): logo real de la plataforma,
+     monocromo. En oscuro se invierte para no perderse sobre el fondo. */
+  .docs-content :global(h3.h3p) {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .docs-content :global(h3.h3p .h3p__img) {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+  }
+  :global(:root[data-theme="dark"]) .docs-content :global(h3.h3p .h3p__img) {
+    filter: invert(1);
+  }
+
+  /* Tablas. */
   .docs-content :global(table) {
     width: 100%;
     border-collapse: collapse;
@@ -175,7 +311,7 @@ const docs = DOCS[DEFAULT_LANG];
   .docs-content :global(th),
   .docs-content :global(td) {
     text-align: left;
-    padding: 9px 10px;
+    padding: 10px 10px;
     border-bottom: 1px solid var(--border);
     vertical-align: top;
   }

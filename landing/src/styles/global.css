@@ -21,6 +21,24 @@
   --radius-lg: 4px;
   --shadow: 0 1px 2px rgba(15,15,15,0.05), 0 4px 14px -10px rgba(15,15,15,0.12);
   --shadow-lg: 0 18px 48px -30px rgba(15,15,15,0.28);
+
+  /* Tokens propios de /docs. Monocromos: negros, blancos y grises, en línea
+     con el resto del sitio. Solo se usan en la página de documentación. */
+  --doc-accent: #17181b;
+  --doc-accent-soft: #f0f0ee;
+  --doc-chip-bg: #f0f0ee;
+  --doc-chip-fg: #35363a;
+  --doc-chip-border: rgba(0,0,0,0.06);
+  --doc-code-bg: #17181b;
+  --doc-code-fg: #e7e7e5;
+  --doc-code-line: #6a6b6f;
+  --doc-code-comment: #8a8b8f;
+  --doc-code-border: rgba(255,255,255,0.06);
+  --doc-copy-bg: rgba(255,255,255,0.08);
+  --doc-copy-bg-hover: rgba(255,255,255,0.18);
+  --doc-copy-fg: #c2c2c0;
+  --doc-note-bg: #f4f4f2;
+  --doc-note-ico: #17181b;
 }
 :root[data-theme="dark"] {
   --bg: #0c0c0d;
@@ -38,6 +56,22 @@
   --focus: #ededec;
   --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 8px 24px -16px rgba(0,0,0,0.6);
   --shadow-lg: 0 24px 60px -34px rgba(0,0,0,0.7);
+
+  --doc-accent: #ededec;
+  --doc-accent-soft: #1f1f21;
+  --doc-chip-bg: #1f1f21;
+  --doc-chip-fg: #c9c9c7;
+  --doc-chip-border: rgba(255,255,255,0.06);
+  --doc-code-bg: #0e0e0f;
+  --doc-code-fg: #e2e2e0;
+  --doc-code-line: #5e5f63;
+  --doc-code-comment: #7a7b7f;
+  --doc-code-border: rgba(255,255,255,0.05);
+  --doc-copy-bg: rgba(255,255,255,0.07);
+  --doc-copy-bg-hover: rgba(255,255,255,0.16);
+  --doc-copy-fg: #a8a8a6;
+  --doc-note-bg: #1b1b1d;
+  --doc-note-ico: #ededec;
 }
 
 * { box-sizing: border-box; }
