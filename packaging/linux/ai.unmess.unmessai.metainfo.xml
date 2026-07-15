@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Metadatos AppStream. Los centros de software (GNOME Software / App Center
+     de Ubuntu) los usan como fuente autoritativa para el nombre, el editor, la
+     licencia y la descripción, en vez de adivinarlos del .deb. Esto evita el
+     "Editor desconocido", la licencia "unknown" y los acentos rotos.
+     @VERSION@ y @DATE@ los sustituye packaging/linux/build-deb.sh al empaquetar. -->
+<component type="desktop-application">
+  <id>ai.unmess.unmessai</id>
+  <launchable type="desktop-id">unmessai.desktop</launchable>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <name>unmessai</name>
+  <summary>Automatic background file versioning</summary>
+  <summary xml:lang="es">Versionado automático de archivos en segundo plano</summary>
+
+  <developer id="ai.unmess">
+    <name>unmessai</name>
+  </developer>
+
+  <description>
+    <p>
+      unmessai protects you from accidental deletions or edits — including those
+      made by AI agents operating on your file system — by versioning every
+      meaningful change outside your git repositories and letting you restore any
+      earlier version. Local-first: everything stays on your machine, no cloud.
+    </p>
+    <p xml:lang="es">
+      unmessai te protege frente a borrados o modificaciones accidentales
+      —incluidos los provocados por agentes de IA que operan sobre tu sistema de
+      archivos— versionando cada cambio relevante fuera de tus repositorios git y
+      permitiéndote restaurar cualquier versión anterior. Local-first: todo se
+      guarda en tu equipo, sin nube.
+    </p>
+    <p>It includes:</p>
+    <p xml:lang="es">Incluye:</p>
+    <ul>
+      <li>A native app with a system-tray icon, its own window and desktop notifications.</li>
+      <li xml:lang="es">App nativa con icono en la bandeja del sistema, ventana propia y notificaciones del escritorio.</li>
+      <li>A background daemon that watches and versions your files.</li>
+      <li xml:lang="es">Un daemon en segundo plano que vigila y versiona tus archivos.</li>
+      <li>A command-line interface to inspect history and restore versions.</li>
+      <li xml:lang="es">Una interfaz de línea de comandos para inspeccionar el historial y restaurar versiones.</li>
+    </ul>
+  </description>
+
+  <categories>
+    <category>Utility</category>
+    <category>System</category>
+  </categories>
+
+  <keywords>
+    <keyword>backup</keyword>
+    <keyword>versioning</keyword>
+    <keyword>restore</keyword>
+    <keyword>snapshot</keyword>
+    <keyword xml:lang="es">versiones</keyword>
+    <keyword xml:lang="es">copia de seguridad</keyword>
+  </keywords>
+
+  <url type="homepage">https://unmessai.com</url>
+  <url type="bugtracker">https://github.com/luisobz/unmess-ai/issues</url>
+  <url type="vcs-browser">https://github.com/luisobz/unmess-ai</url>
+
+  <provides>
+    <binary>unmess</binary>
+    <binary>unmessd</binary>
+    <binary>unmess-app</binary>
+  </provides>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="@VERSION@" date="@DATE@" />
+  </releases>
+</component>

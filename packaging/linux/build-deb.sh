@@ -20,7 +20,8 @@ PKG="$OUT/unmessai_${VERSION}_${ARCH}"
 
 rm -rf "$PKG"
 mkdir -p "$PKG/DEBIAN" "$PKG/usr/bin" "$PKG/usr/share/applications" \
-         "$PKG/etc/xdg/autostart" "$PKG/usr/share/doc/unmessai"
+         "$PKG/etc/xdg/autostart" "$PKG/usr/share/doc/unmessai" \
+         "$PKG/usr/share/metainfo"
 
 echo "==> Compilando daemon y CLI (Go puro)"
 (cd "$ROOT" && GOOS=linux GOARCH=$ARCH CGO_ENABLED=0 \
@@ -39,19 +40,23 @@ else
   echo "AVISO: iconos hicolor no encontrados; ejecuta build/appicon/generate.sh" >&2
 fi
 
+# La Description debe ser solo ASCII: el App Center (PackageKit) muestra los
+# caracteres no ASCII de un .deb local como "?". El texto con acentos correcto
+# vive en el metainfo AppStream.
 cat > "$PKG/DEBIAN/control" <<EOF
 Package: unmessai
 Version: $VERSION
 Section: utils
 Priority: optional
 Architecture: $ARCH
-Maintainer: unmessai <hola@unmess.ai>
+Maintainer: unmessai <info@unmessai.com>
+Homepage: https://unmessai.com
 Depends: libc6, libgtk-3-0, libwebkit2gtk-4.1-0, libayatana-appindicator3-1
 Recommends: git
-Description: Versionado automático de archivos en segundo plano
+Description: Versionado continuo de archivos en segundo plano
  Protege frente a borrados o modificaciones accidentales (incluidos los
  provocados por agentes de IA) versionando cada cambio fuera de repos git
- y permitiendo restaurar cualquier versión anterior. Local-first.
+ y permitiendo restaurar versiones anteriores. Local-first.
  Incluye app nativa con icono en la bandeja del sistema, ventana propia y
  notificaciones del escritorio.
 EOF
@@ -74,10 +79,13 @@ set -e
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then
   gtk-update-icon-cache -q /usr/share/icons/hicolor 2>/dev/null || true
 fi
-# Mata cualquier daemon viejo que pudiera quedar (por si acaso) y arranca
-# el nuevo para que la UI que abra el usuario ya use el binario actualizado.
+# postinst corre como root durante la instalación: NO arrancar el daemon
+# aquí, o quedaría corriendo como root para siempre (~ se expandiría a
+# /root en vez de al home del usuario). Solo matamos cualquier daemon viejo
+# que pudiera haber quedado de una instalación previa con este bug; el
+# daemon correcto lo arranca la sesión del usuario (autostart de la bandeja
+# o `unmess ui`).
 pkill unmessd 2>/dev/null || true
-nohup /usr/bin/unmessd >/dev/null 2>&1 &
 echo "unmessai instalado. Abre la app desde el lanzador o ejecuta: unmess ui"
 EOF
 chmod 0755 "$PKG/DEBIAN/postinst"
@@ -85,6 +93,24 @@ chmod 0755 "$PKG/DEBIAN/postinst"
 cp "$ROOT/packaging/linux/unmessai.desktop" "$PKG/usr/share/applications/"
 cp "$ROOT/packaging/linux/unmessai-autostart.desktop" "$PKG/etc/xdg/autostart/unmessai.desktop"
 cp "$ROOT/README.md" "$PKG/usr/share/doc/unmessai/"
+
+# Metadatos AppStream: fuente autoritativa para el centro de software (nombre,
+# editor, licencia y descripción con acentos correctos). Se sustituye la
+# versión y la fecha de publicación en la plantilla.
+echo "==> Metadatos AppStream + copyright"
+META="$PKG/usr/share/metainfo/ai.unmess.unmessai.metainfo.xml"
+sed -e "s/@VERSION@/$VERSION/g" -e "s/@DATE@/$(date -u +%F)/g" \
+  "$ROOT/packaging/linux/ai.unmess.unmessai.metainfo.xml" > "$META"
+
+# Fichero de copyright en formato legible por máquina (Debian policy). Evita la
+# licencia "unknown" en el centro de software y cumple con la política Debian.
+cp "$ROOT/packaging/linux/copyright" "$PKG/usr/share/doc/unmessai/copyright"
+
+# Validación no bloqueante del AppStream si hay herramienta disponible.
+if command -v appstreamcli >/dev/null 2>&1; then
+  appstreamcli validate --no-net "$META" || \
+    echo "AVISO: appstreamcli reportó problemas en el metainfo (no bloqueante)" >&2
+fi
 
 dpkg-deb --build --root-owner-group "$PKG" "$OUT/unmessai_${VERSION}_${ARCH}.deb"
 echo "OK: $OUT/unmessai_${VERSION}_${ARCH}.deb"

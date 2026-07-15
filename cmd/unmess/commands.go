@@ -4,11 +4,14 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/luisobz/unmess-ai/internal/config"
+	"github.com/luisobz/unmess-ai/internal/daemon"
 	"github.com/luisobz/unmess-ai/internal/journal"
 	"github.com/luisobz/unmess-ai/internal/retention"
 	"github.com/luisobz/unmess-ai/internal/textdiff"
@@ -276,6 +279,51 @@ func cmdRestore(configPath string, args []string) error {
 	fmt.Printf("restaurado %q a %s\n", rel, version)
 	if safety != "" {
 		fmt.Printf("copia de seguridad: %s\n", safety)
+	}
+	return nil
+}
+
+func cmdProtect(configPath string, args []string) error {
+	var paths []string
+	for _, a := range args {
+		if strings.HasPrefix(a, "-") {
+			return fmt.Errorf("opción desconocida: %s", a)
+		}
+		paths = append(paths, a)
+	}
+	if len(paths) == 0 {
+		return errors.New("uso: unmess protect <ruta> [<ruta>...]")
+	}
+
+	cfg, st, err := openStore(configPath)
+	if err != nil {
+		return err
+	}
+	abs := make([]string, 0, len(paths))
+	for _, p := range paths {
+		e, err := config.ExpandUser(p)
+		if err != nil {
+			return err
+		}
+		a, err := absPath(e)
+		if err != nil {
+			return err
+		}
+		if _, err := st.RelPath(a); err != nil {
+			return fmt.Errorf("%q está fuera de la carpeta personal (%s)", p, st.BaseDir())
+		}
+		abs = append(abs, a)
+	}
+
+	sum, err := daemon.Protect(cfg, st, abs, log.New(os.Stderr, "unmess ", 0))
+	if err != nil {
+		return err
+	}
+	fmt.Printf("examinados:           %d\n", sum.Scanned)
+	fmt.Printf("versiones iniciales:  %d\n", sum.Protected)
+	fmt.Printf("ya con historial:     %d\n", sum.Existing)
+	if sum.Failed > 0 {
+		fmt.Printf("fallos:               %d\n", sum.Failed)
 	}
 	return nil
 }

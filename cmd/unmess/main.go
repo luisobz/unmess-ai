@@ -18,6 +18,7 @@ Uso:
   unmess versions <ruta>
   unmess diff <ruta> [--from <versión>] [--to <versión|current>]
   unmess restore <ruta> [--version <versión>] [--yes]
+  unmess protect <ruta> [<ruta>...]
   unmess prune [--dry-run]
   unmess config [path | get <clave> | set <clave> <valor>]
   unmess ui [ruta] [--browser]
@@ -56,6 +57,8 @@ func main() {
 		err = cmdDiff(configPath, rest)
 	case "restore":
 		err = cmdRestore(configPath, rest)
+	case "protect":
+		err = cmdProtect(configPath, rest)
 	case "prune":
 		err = cmdPrune(configPath, rest)
 	case "config":

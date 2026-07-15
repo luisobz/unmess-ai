@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>ai.unmess.unmessai-dev</id>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <name>unmessai (dev)</name>
+  <summary>Automatic background file versioning — development build</summary>
+  <summary xml:lang="es">Versionado automático de archivos en segundo plano — versión de desarrollo</summary>
+
+  <developer id="ai.unmess">
+    <name>unmessai</name>
+  </developer>
+
+  <description>
+    <p>
+      Development build of unmessai. Uses a separate port (48222), store
+      (~/UnmessaiBackups-dev) and config directory so it doesn't interfere with
+      the production package.
+    </p>
+    <p xml:lang="es">
+      Versión de desarrollo de unmessai. Usa puerto (48222), store
+      (~/UnmessaiBackups-dev) y configuración independientes para no interferir
+      con el paquete de producción.
+    </p>
+  </description>
+
+  <categories>
+    <category>Utility</category>
+    <category>System</category>
+  </categories>
+
+  <keywords>
+    <keyword>backup</keyword>
+    <keyword>versioning</keyword>
+    <keyword>restore</keyword>
+    <keyword>development</keyword>
+    <keyword xml:lang="es">versiones</keyword>
+    <keyword xml:lang="es">desarrollo</keyword>
+  </keywords>
+
+  <url type="homepage">https://unmessai.com</url>
+  <url type="bugtracker">https://github.com/luisobz/unmess-ai/issues</url>
+  <url type="vcs-browser">https://github.com/luisobz/unmess-ai</url>
+
+  <provides>
+    <binary>unmess-dev</binary>
+    <binary>unmessd-dev</binary>
+  </provides>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="@VERSION@" date="@DATE@" />
+  </releases>
+</component>

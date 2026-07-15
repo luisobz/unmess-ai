@@ -1,0 +1,97 @@
+name: unmessai
+base: core24
+version: git
+summary: Automatic background file versioning
+description: |
+  unmessai protects you from accidental deletions or edits — including those
+  made by AI agents operating on your file system — by versioning every
+  meaningful change outside your git repositories and letting you restore any
+  earlier version. Local-first: everything stays on your machine, no cloud.
+
+  It includes:
+  * A native app with a system-tray icon, its own window and desktop notifications.
+  * A background daemon that watches and versions your files.
+  * A command-line interface to inspect history and restore versions.
+
+grade: stable
+confinement: strict
+
+contact: info@unmessai.com
+website: https://unmessai.com
+issues: https://github.com/luisobz/unmess-ai/issues
+source-code: https://github.com/luisobz/unmess-ai
+
+license: GPL-3.0-or-later
+
+# Icono para la Snap Store
+icon: packaging/linux/icons/hicolor/256x256/apps/unmessai.png
+
+apps:
+  unmessai-app:
+    command: bin/unmess-app
+    plugs:
+      - home
+      - network
+      - network-bind
+      - system-tray
+      - unity7
+      - x11
+      - wayland
+      - desktop
+      - gsettings
+    desktop: usr/share/applications/unmessai.desktop
+    environment:
+      QT_QPA_PLATFORMTHEME: gtk3
+      GTK_USE_PORTAL: 1
+
+  unmessd:
+    command: bin/unmessd
+    daemon: simple
+    plugs:
+      - home
+      - network
+      - network-bind
+
+  unmess:
+    command: bin/unmess
+    plugs:
+      - home
+
+parts:
+  unmessai:
+    plugin: go
+    source: .
+    source-type: git
+    build-packages:
+      - libgtk-3-dev
+      - libwebkit2gtk-4.1-dev
+      - libayatana-appindicator3-dev
+      - pkg-config
+    stage-packages:
+      - libgtk-3-0
+      - libwebkit2gtk-4.1-0
+      - libayatana-appindicator3-1
+      - libc6
+
+    build-environment:
+      - CGO_ENABLED: "1"
+      - LDFLAGS: "-s -w"
+
+    override-build: |
+      export VER=$(git describe --tags --always | sed 's/^v//')
+      export LDF="-s -w -X main.version=${VER}"
+
+      # Compilar daemon y CLI (Go puro)
+      CGO_ENABLED=0 go build -trimpath -ldflags="$LDF" \
+        -o $CRAFT_PART_INSTALL/bin/unmessd ./cmd/unmessd
+      CGO_ENABLED=0 go build -trimpath -ldflags="$LDF" \
+        -o $CRAFT_PART_INSTALL/bin/unmess ./cmd/unmess
+
+      # Compilar app nativa (Wails v3, GTK3/WebKit2GTK)
+      CGO_ENABLED=1 go build -tags "gui gtk3" -trimpath -ldflags="$LDF" \
+        -o $CRAFT_PART_INSTALL/bin/unmess-app ./cmd/unmess-app
+
+    organize:
+      # Copiar iconos en el layout de hicolor
+      packaging/linux/icons/hicolor: usr/share/icons/hicolor
+      packaging/linux/unmessai.desktop: usr/share/applications/unmessai.desktop

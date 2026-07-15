@@ -216,18 +216,27 @@ genera en cada arranque y se guarda en `<prefix>/var/token` con permisos 0600.
 ### Linux
 
 ```sh
-# Opción A: paquete .deb
+# Opción A: Snap (recomendado para la mayoría de usuarios)
+sudo snap install unmessai
+unmess service install                     # autoarranque (systemd de usuario, sin root)
+unmess ui                                  # abre la UI en el navegador
+
+# Opción B: paquete .deb
 packaging/linux/build-deb.sh 0.2.0        # requiere dpkg-deb y las librerías GTK de la sección 2
 sudo dpkg -i dist/unmessai_0.2.0_amd64.deb
 unmess service install                     # autoarranque (systemd de usuario, sin root)
 unmess ui                                  # abre la UI en el navegador
 
-# Opción B: binarios sueltos
+# Opción C: binarios sueltos
 go build -o ~/.local/bin/ ./cmd/unmessd ./cmd/unmess && unmess service install
 ```
 
 El servicio queda en `~/.config/systemd/user/unmessai.service` y puede consultarse con
 `systemctl --user status unmessai`.
+
+**Snap**: funciona en cualquier distribución Linux moderna con snapd. La instalación es
+automática, no requiere dependencias adicionales y se actualiza automáticamente.
+Información de configuración en `packaging/snap/README.md`.
 
 ### Windows
 
@@ -310,6 +319,7 @@ unmess versions docs/informe.txt
 unmess diff docs/informe.txt                 # última versión frente a la anterior
 unmess diff docs/informe.txt --to current    # última versión frente al disco
 unmess restore docs/informe.txt [--version v2026-07-11-15-23.txt] [--yes]
+unmess protect ~/Documentos      # versión inicial de los ficheros existentes sin historial
 unmess prune [--dry-run]         # aplicar la retención bajo demanda
 unmess config path|get k|set k v
 unmess ui [ruta]                 # abre la UI, opcionalmente sobre un fichero concreto
@@ -332,6 +342,14 @@ reciente y ajustes. El botón "Versionar ahora" de la barra superior fuerza el v
 inmediato de los cambios pendientes del debounce, útil antes de una operación delicada
 o cuando no se quiere esperar al intervalo configurado (internamente llama a
 `POST /api/flush`).
+
+"Proteger existentes" cubre los ficheros que ya estaban en el disco al instalar: como el
+versionado se dispara con el primer cambio, un fichero que nunca ha cambiado no tiene
+historial, y si algo lo borra o lo sobrescribe no habría estado anterior que restaurar.
+La acción guarda una versión inicial de los ficheros bajo la ruta elegida que aún no
+tienen historial, aplicando los mismos filtros que la vigilancia; los ya versionados no
+se tocan, así que es idempotente (internamente, `POST /api/protect`; en CLI,
+`unmess protect <ruta>`).
 
 Seguridad del servidor local: escucha solo en 127.0.0.1, exige un token por sesión con
 comparación en tiempo constante y valida las cabeceras Host y Origin contra CSRF.

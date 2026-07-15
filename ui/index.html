@@ -47,10 +47,16 @@
 <div class="layout">
   <aside class="sidebar" aria-label="Ficheros">
     <div class="sidebar-controls">
-      <button type="button" id="btn-flush" class="btn btn-flush">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4.5 13.5h5L10 22l8.5-11.5h-5L13 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-        <span data-i18n="flush_now">Versionar ahora</span>
-      </button>
+      <div class="action-row">
+        <button type="button" id="btn-flush" class="btn btn-flush">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4.5 13.5h5L10 22l8.5-11.5h-5L13 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          <span data-i18n="flush_now">Versionar ahora</span>
+        </button>
+        <button type="button" id="btn-protect-existing" class="btn" aria-haspopup="dialog">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span data-i18n="protect_existing">Proteger existentes</span>
+        </button>
+      </div>
       <label class="visually-hidden" for="search" data-i18n="search_files_label">Buscar ficheros</label>
       <div class="search-wrap">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -272,6 +278,29 @@
           <a class="btn" href="https://ko-fi.com/luisobz" target="_blank" rel="noopener noreferrer">Ko-fi</a>
           <a class="btn" href="https://github.com/sponsors/luisobz" target="_blank" rel="noopener noreferrer">GitHub Sponsors</a>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal proteger ficheros existentes -->
+<div class="overlay" id="protect-overlay" hidden>
+  <div class="modal modal-small" role="dialog" aria-modal="true" aria-labelledby="protect-title" id="protect-dialog">
+    <div class="modal-head">
+      <h2 id="protect-title" data-i18n="protect_title">Proteger ficheros existentes</h2>
+      <button type="button" class="btn icon-btn" data-close="protect" data-i18n-aria-label="close" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="about-body">
+      <p data-i18n="protect_desc">unmessai versiona un fichero la primera vez que cambia, así que lo que no ha cambiado desde la instalación aún no tiene historial: si algo lo borra o lo sobrescribe, no habría estado anterior que restaurar. Esta acción guarda una versión inicial de esos ficheros.</p>
+      <div class="field">
+        <label for="protect-path" data-i18n="protect_path_label">Ruta a proteger</label>
+        <p class="hint" data-i18n="protect_path_hint">Fichero o carpeta; ~ es tu carpeta personal. Se aplican los filtros de vigilancia (exclusiones, ignorados, tamaño máximo).</p>
+        <input type="text" id="protect-path" value="~" spellcheck="false" autocomplete="off" />
+      </div>
+      <p class="safety-note" data-i18n="protect_note">Los ficheros que ya tienen historial no se tocan: puedes repetirlo cuando quieras.</p>
+      <div class="modal-actions">
+        <button type="button" class="btn" data-close="protect" data-i18n="cancel">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="protect-confirm" data-i18n="protect_confirm">Proteger</button>
       </div>
     </div>
   </div>

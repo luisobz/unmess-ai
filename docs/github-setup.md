@@ -7,6 +7,7 @@
 | `SSH_HOST` | Hostname/IP del servidor |
 | `SSH_USER` | Usuario SSH |
 | `SSH_KEY` | Clave privada SSH (sin passphrase) |
+| `SNAPCRAFT_STORE_CREDENTIALS` | Credenciales para publicar en Snap Store (opcional) |
 
 ## Variables
 

@@ -24,6 +24,9 @@ const (
 	EventResumed EventType = "resumed"
 	// EventPruned: la poda liberó espacio.
 	EventPruned EventType = "pruned"
+	// EventProtected: una pasada de protección inicial escribió versiones de
+	// ficheros existentes sin historial (lo emite la capa de API tras Protect).
+	EventProtected EventType = "protected"
 )
 
 // Event es una notificación puntual del daemon. Se serializa tal cual sobre el

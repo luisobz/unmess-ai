@@ -211,6 +211,15 @@ func (s *Store) ListVersions(relPath string) ([]VersionInfo, error) {
 	return readVersions(s.versionDir(relPath))
 }
 
+// HasVersions indica si relPath tiene alguna versión en el store.
+func (s *Store) HasVersions(relPath string) (bool, error) {
+	versions, err := s.ListVersions(relPath)
+	if err != nil {
+		return false, err
+	}
+	return len(versions) > 0, nil
+}
+
 // VersionContent devuelve el contenido crudo de una versión.
 func (s *Store) VersionContent(relPath, name string) ([]byte, error) {
 	data, err := os.ReadFile(filepath.Join(s.versionDir(relPath), name))

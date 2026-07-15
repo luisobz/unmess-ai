@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
 
 // cmdUI abre la UI de unmessai. Por defecto lanza la app nativa (ventana propia
@@ -55,6 +57,10 @@ func cmdUI(configPath string, args []string) error {
 		}
 	}
 
+	if err := ensureDaemonRunning(cfg.UI.Port); err != nil {
+		fmt.Printf("(no se pudo arrancar el daemon automáticamente: %v)\n", err)
+	}
+
 	url := fmt.Sprintf("http://127.0.0.1:%d/", cfg.UI.Port)
 	if rel != "" {
 		url += "#/file/" + rel
@@ -64,6 +70,48 @@ func cmdUI(configPath string, args []string) error {
 		fmt.Printf("(no se pudo abrir el navegador automáticamente: %v)\n", err)
 	}
 	return nil
+}
+
+// ensureDaemonRunning comprueba que el daemon responde en el puerto de la UI
+// y, si no, lo arranca como el usuario actual (nunca hay que depender de un
+// daemon dejado corriendo por la instalación del paquete: ese arrancaría como
+// root y expandiría "~" a /root en vez de al home real del usuario). Solo se
+// usa en el fallback de navegador: cuando se abre la app nativa, es ella
+// quien se encarga de arrancar el daemon (ver ensureDaemon en unmess-app).
+func ensureDaemonRunning(port int) error {
+	baseURL := fmt.Sprintf("http://127.0.0.1:%d", port)
+	if daemonAlive(baseURL) {
+		return nil
+	}
+
+	exe, err := unmessdPath()
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command(exe)
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("arrancando %s: %w", exe, err)
+	}
+
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		if daemonAlive(baseURL) {
+			return nil
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	return fmt.Errorf("el daemon no respondió en %s tras arrancarlo", baseURL)
+}
+
+// daemonAlive comprueba si hay un daemon respondiendo en baseURL.
+func daemonAlive(baseURL string) bool {
+	c := &http.Client{Timeout: 2 * time.Second}
+	resp, err := c.Get(baseURL + "/api/token")
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
 }
 
 // findNativeApp localiza el binario de la app nativa (unmess-app) junto al CLI

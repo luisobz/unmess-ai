@@ -492,6 +492,45 @@ async function doUntrack() {
   }
 }
 
+// --- proteger ficheros existentes (versión inicial) ---
+
+function openProtect() {
+  $("protect-path").value = "~";
+  openOverlay("protect");
+}
+
+// doProtect pide al daemon una pasada de protección inicial: versión baseline
+// de los ficheros bajo la ruta indicada que aún no tienen historial.
+async function doProtect() {
+  const path = $("protect-path").value.trim();
+  if (!path) return;
+  const btn = $("protect-confirm");
+  btn.disabled = true;
+  btn.textContent = t("protect_running");
+  try {
+    const j = await apiJSON("/api/protect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
+    });
+    closeOverlay("protect");
+    if (j.protected > 0) {
+      toast(t("protect_done", { n: j.protected, m: j.existing }));
+    } else if (j.scanned === 0) {
+      toast(t("protect_none_matched"));
+    } else {
+      toast(t("protect_all_tracked", { m: j.existing }));
+    }
+    await refreshFiles();
+    await refreshStatus();
+  } catch (e) {
+    toast(t("protect_error", { msg: e.message }), "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = t("protect_confirm");
+  }
+}
+
 // --- actividad (journal) ---
 
 async function refreshJournal() {
@@ -725,6 +764,7 @@ function handleLiveEvent(ev) {
     case "versioned":
     case "restored":
     case "pruned":
+    case "protected":
       scheduleLiveRefresh();
       break;
     case "paused":
@@ -830,6 +870,11 @@ async function init() {
 
   $("btn-pause").addEventListener("click", togglePause);
   $("btn-flush").addEventListener("click", flushNow);
+  $("btn-protect-existing").addEventListener("click", openProtect);
+  $("protect-confirm").addEventListener("click", doProtect);
+  $("protect-path").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); doProtect(); }
+  });
   $("btn-activity").addEventListener("click", () => { openOverlay("activity"); refreshJournal(); });
   $("btn-settings").addEventListener("click", openSettings);
   $("btn-about").addEventListener("click", () => openOverlay("about"));

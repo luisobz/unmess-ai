@@ -497,3 +497,83 @@ func TestForget(t *testing.T) {
 		t.Fatalf("el store debería quedar vacío, quedan %d", len(files))
 	}
 }
+
+func TestProtect(t *testing.T) {
+	srv, st, base := newTestServer(t)
+	ts := time.Date(2026, 7, 13, 10, 0, 0, 0, time.Local)
+
+	// Un fichero ya versionado y dos existentes sin historial.
+	writeVersion(t, st, base, "docs/tracked.txt", "v1\n", ts)
+	for rel, content := range map[string]string{
+		"docs/legacy.txt": "contenido previo a la instalación\n",
+		"notas.md":        "notas\n",
+	} {
+		abs := filepath.Join(base, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(abs, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	rec := do(t, srv, "POST", "/api/protect", reqOpts{
+		token:  srv.Token(),
+		origin: "http://127.0.0.1:48111",
+		body:   `{"path":"` + strings.ReplaceAll(base, `\`, `\\`) + `"}`,
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("protect: esperado 200, obtenido %d (%s)", rec.Code, rec.Body.String())
+	}
+	var resp protectResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decodificar protect: %v", err)
+	}
+	if resp.Protected != 2 || resp.Existing != 1 || resp.Failed != 0 {
+		t.Fatalf("esperado protected=2 existing=1 failed=0, obtenido %+v", resp)
+	}
+	// Las baselines existen y conservan el contenido en disco.
+	vs, err := st.ListVersions("docs/legacy.txt")
+	if err != nil || len(vs) != 1 {
+		t.Fatalf("docs/legacy.txt: esperada 1 versión, obtenidas %d (err=%v)", len(vs), err)
+	}
+	data, err := st.VersionContent("docs/legacy.txt", vs[0].Name)
+	if err != nil || string(data) != "contenido previo a la instalación\n" {
+		t.Fatalf("baseline de docs/legacy.txt incorrecta: %q (err=%v)", data, err)
+	}
+	// El ya versionado no gana versiones nuevas.
+	if vs, _ := st.ListVersions("docs/tracked.txt"); len(vs) != 1 {
+		t.Fatalf("docs/tracked.txt: esperada 1 versión, obtenidas %d", len(vs))
+	}
+
+	// Ruta fuera de la carpeta personal → 400.
+	outside := t.TempDir()
+	rec = do(t, srv, "POST", "/api/protect", reqOpts{
+		token:  srv.Token(),
+		origin: "http://127.0.0.1:48111",
+		body:   `{"path":"` + strings.ReplaceAll(outside, `\`, `\\`) + `"}`,
+	})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("protect fuera de base: esperado 400, obtenido %d", rec.Code)
+	}
+
+	// Ruta inexistente → 400.
+	rec = do(t, srv, "POST", "/api/protect", reqOpts{
+		token:  srv.Token(),
+		origin: "http://127.0.0.1:48111",
+		body:   `{"path":"no-existe-esta-carpeta"}`,
+	})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("protect inexistente: esperado 400, obtenido %d", rec.Code)
+	}
+
+	// Sin origen local legítimo → 403.
+	rec = do(t, srv, "POST", "/api/protect", reqOpts{
+		token:  srv.Token(),
+		origin: "http://evil.example",
+		body:   `{"path":"~"}`,
+	})
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("protect con origen externo: esperado 403, obtenido %d", rec.Code)
+	}
+}

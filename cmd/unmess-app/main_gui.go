@@ -273,6 +273,8 @@ func (a *appState) onDaemonEvent(ev daemon.Event) {
 		a.setPauseMenuState(false)
 	case daemon.EventPruned:
 		// Silencioso salvo mensaje informativo en tooltip; no molestamos con toast.
+	case daemon.EventProtected:
+		a.sendNotification("Protección inicial completada", ev.Message)
 	}
 }
 

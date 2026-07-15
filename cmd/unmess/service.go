@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 func cmdService(configPath string, args []string) error {
@@ -38,10 +39,7 @@ func cmdService(configPath string, args []string) error {
 // unmessdPath localiza el binario del daemon: junto al binario unmess actual, o
 // en el PATH.
 func unmessdPath() (string, error) {
-	exeName := "unmessd"
-	if runtime.GOOS == "windows" {
-		exeName = "unmessd.exe"
-	}
+	exeName := daemonExeName()
 	if self, err := os.Executable(); err == nil {
 		candidate := filepath.Join(filepath.Dir(self), exeName)
 		if _, serr := os.Stat(candidate); serr == nil {
@@ -52,4 +50,22 @@ func unmessdPath() (string, error) {
 		return p, nil
 	}
 	return "", fmt.Errorf("no se encontró el binario %q (colócalo junto a unmess o en el PATH)", exeName)
+}
+
+// daemonExeName deriva el nombre del binario del daemon a partir del nombre
+// del binario actual del CLI, sustituyendo "unmess" por "unmessd" (p.ej.
+// "unmess" -> "unmessd", "unmess-dev" -> "unmessd-dev"). Así funciona tanto
+// para el paquete estable como para el de desarrollo sin necesitar hardcodear
+// el sufijo "-dev".
+func daemonExeName() string {
+	self := "unmess"
+	if exe, err := os.Executable(); err == nil {
+		self = filepath.Base(exe)
+	}
+	self = strings.TrimSuffix(self, ".exe")
+	name := strings.Replace(self, "unmess", "unmessd", 1)
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	return name
 }

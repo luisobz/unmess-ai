@@ -240,8 +240,15 @@ body {
 
 .sidebar-controls { padding: 16px 16px 8px; }
 
-/* "Versionar ahora": acción de anchura completa sobre el buscador. */
-.btn-flush { width: 100%; justify-content: center; margin-bottom: 10px; }
+/* "Versionar ahora" y "Proteger existentes": comparten una fila sobre el
+   buscador en vez de apilarse cada uno en su propia línea. flex-basis 0
+   fuerza el reparto a mitades iguales; con solo 320px de sidebar la
+   etiqueta larga no entra en una línea, así que se deja envolver en dos en
+   vez de truncarla (un botón sin texto completo es peor para localización
+   que uno algo más alto). */
+.action-row { display: flex; align-items: stretch; gap: 8px; margin-bottom: 10px; }
+.action-row .btn { flex: 1 1 0; min-width: 0; padding: 8px 10px; text-align: center; }
+.action-row .btn span { white-space: normal; line-height: 1.25; }
 
 .search-wrap { position: relative; }
 .search-wrap svg {

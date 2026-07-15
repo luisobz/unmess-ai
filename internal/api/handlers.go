@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -486,6 +487,77 @@ func (s *Server) handleForget(w http.ResponseWriter, r *http.Request) {
 	resp.Forgotten = 1
 	resp.FreedBytes = freed
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// protectRequest es el cuerpo de POST /api/protect. Path es una ruta del
+// sistema de ficheros (fichero o directorio): absoluta, con "~" inicial, o
+// relativa a la carpeta personal.
+type protectRequest struct {
+	Path string `json:"path"`
+}
+
+type protectResponse struct {
+	Scanned   int `json:"scanned"`
+	Protected int `json:"protected"`
+	Existing  int `json:"existing"`
+	Failed    int `json:"failed"`
+}
+
+// handleProtect escribe una versión inicial de los ficheros existentes bajo la
+// ruta indicada que aún no tienen historial (ver daemon.Protect), de forma que
+// un borrado o sobrescritura posterior siempre tenga estado anterior. Muta
+// estado, así que exige origen local.
+func (s *Server) handleProtect(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeErr(w, http.StatusMethodNotAllowed, "método no permitido")
+		return
+	}
+	if !s.requireLocal(w, r) {
+		return
+	}
+	var req protectRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "cuerpo JSON inválido")
+		return
+	}
+	p := strings.TrimSpace(req.Path)
+	if p == "" {
+		writeErr(w, http.StatusBadRequest, "ruta vacía")
+		return
+	}
+	abs, err := config.ExpandUser(p)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !filepath.IsAbs(abs) {
+		// Ruta relativa: se interpreta respecto a la carpeta personal.
+		abs = filepath.Join(s.store.BaseDir(), abs)
+	}
+	if _, err := s.store.RelPath(abs); err != nil {
+		writeErr(w, http.StatusBadRequest, "la ruta debe estar dentro de la carpeta personal")
+		return
+	}
+
+	c := s.currentConfig()
+	sum, err := daemon.Protect(&c, s.store, []string{abs}, s.rt.Logger)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if s.rt.Events != nil && sum.Protected > 0 {
+		s.rt.Events.Publish(daemon.Event{
+			Type:    daemon.EventProtected,
+			Path:    p,
+			Message: fmt.Sprintf("%d fichero(s) protegidos con versión inicial", sum.Protected),
+		})
+	}
+	writeJSON(w, http.StatusOK, protectResponse{
+		Scanned:   sum.Scanned,
+		Protected: sum.Protected,
+		Existing:  sum.Existing,
+		Failed:    sum.Failed,
+	})
 }
 
 // journalEntry describe una entrada en GET /api/journal.
