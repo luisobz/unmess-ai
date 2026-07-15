@@ -95,7 +95,13 @@ parts:
       CGO_ENABLED=1 go build -tags "gui gtk3" -trimpath -ldflags="$LDF" \
         -o $CRAFT_PART_INSTALL/bin/unmess-app ./cmd/unmess-app
 
-    organize:
-      # Copiar iconos en el layout de hicolor
-      packaging/linux/icons/hicolor: usr/share/icons/hicolor
-      packaging/linux/unmessai.desktop: usr/share/applications/unmessai.desktop
+      # Lanzador e iconos: el plugin go no copia recursos del source al
+      # install (organize solo reordena lo que ya hay en el install), así
+      # que se copian a mano. Icon= pasa a ruta dentro del snap porque en
+      # confinamiento estricto el nombre de tema no resuelve.
+      mkdir -p $CRAFT_PART_INSTALL/usr/share/applications \
+               $CRAFT_PART_INSTALL/usr/share/icons
+      sed 's|^Icon=.*|Icon=${SNAP}/usr/share/icons/hicolor/256x256/apps/unmessai.png|' \
+        packaging/linux/unmessai.desktop \
+        > $CRAFT_PART_INSTALL/usr/share/applications/unmessai.desktop
+      cp -r packaging/linux/icons/hicolor $CRAFT_PART_INSTALL/usr/share/icons/
