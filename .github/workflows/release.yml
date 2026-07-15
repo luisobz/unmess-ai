@@ -113,7 +113,7 @@ jobs:
 
       - name: Instalar Inno Setup
         shell: pwsh
-        run: choco install innosetup --no-progress -y --version=6.4.1
+        run: choco install innosetup --no-progress -y
 
       - name: Compilar instalador (Inno Setup)
         shell: pwsh
