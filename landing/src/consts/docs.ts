@@ -41,6 +41,17 @@ export const DOCS: Record<"es" | "en", DocsPage> = {
 <p>Se distribuye en tres piezas: el CLI <code>unmess</code>, el daemon <code>unmessd</code> (vigila y versiona) y la app nativa <code>unmess-app</code> (bandeja del sistema y ventana propia, incluida en el paquete de Linux).</p>`,
       },
       {
+        id: "how",
+        title: "Cómo funciona",
+        html: `<ol>
+<li><strong>Vigila</strong> tu carpeta personal con la API nativa del sistema de archivos.</li>
+<li><strong>Agrupa</strong> los cambios (debounce) para no versionar cada pulsación.</li>
+<li><strong>Guarda</strong> cada versión en tu store local (<code>~/UnmessaiBackups</code>), con un journal de actividad.</li>
+<li><strong>Poda</strong> por retención (nº de versiones, antigüedad) para no crecer sin límite.</li>
+</ol>
+<p>Quedan fuera tus repositorios git (que ya tienen su propio historial), el propio store y las rutas/nombres excluidos en la configuración.</p>`,
+      },
+      {
         id: "install",
         title: "Instalación",
         html: `<p>Descarga el paquete para tu sistema desde la <a href="/#descargas">página principal</a> o desde la terminal. Los comandos usan la última versión publicada, <code>${V}</code>.</p>
@@ -68,29 +79,6 @@ tar -xf ${A.winZip}
 windows-amd64\\unmess.exe service install
 windows-amd64\\unmess.exe ui --browser</code></pre>
 <div class="note"><strong>Nota:</strong> la primera vez, unmessai crea su configuración por defecto y empieza a proteger tu carpeta personal (excluyendo Descargas, Vídeos, Música, <code>node_modules</code>, etc.).</div>`,
-      },
-      {
-        id: "how",
-        title: "Cómo funciona",
-        html: `<ol>
-<li><strong>Vigila</strong> tu carpeta personal con la API nativa del sistema de archivos.</li>
-<li><strong>Agrupa</strong> los cambios (debounce) para no versionar cada pulsación.</li>
-<li><strong>Guarda</strong> cada versión en tu store local (<code>~/UnmessaiBackups</code>), con un journal de actividad.</li>
-<li><strong>Poda</strong> por retención (nº de versiones, antigüedad) para no crecer sin límite.</li>
-</ol>
-<p>Quedan fuera tus repositorios git (que ya tienen su propio historial), el propio store y las rutas/nombres excluidos en la configuración.</p>`,
-      },
-      {
-        id: "app",
-        title: "La app nativa",
-        html: `<p>En Linux (paquete <code>.deb</code>), unmessai se integra como una aplicación nativa de tu sistema:</p>
-<div class="cards">
-<div class="card"><h3>Icono en la bandeja</h3><p>Menú para abrir la ventana, pausar/reanudar la protección y salir. El icono cambia a ámbar cuando está en pausa.</p></div>
-<div class="card"><h3>Ventana propia</h3><p>La interfaz se abre en su propia ventana (no en el navegador), con búsqueda, historial, diff y restauración.</p></div>
-<div class="card"><h3>Notificaciones</h3><p>Avisos del sistema cuando se guarda una versión, se completa una restauración o hay un error.</p></div>
-</div>
-<p><strong>Pausar</strong> detiene el versionado (por ejemplo, durante una operación masiva de archivos); mientras está en pausa, los cambios no se guardan. Reanudar vuelve a proteger.</p>
-<p>En macOS, Windows o instalaciones por tarball usas la misma interfaz en el navegador con <code>unmess ui --browser</code>, que se sirve en local (<code>127.0.0.1</code>).</p>`,
       },
       {
         id: "restore",
@@ -143,19 +131,12 @@ unmess --config /ruta/config.toml status</code></pre>`,
       {
         id: "updates",
         title: "Actualizaciones",
-        html: `<p>unmessai no se actualiza solo: descargas la nueva versión y reemplazas los binarios. Tu store (<code>~/UnmessaiBackups</code>) y tu <code>config.toml</code> se conservan intactos. La última versión es <code>${V}</code> (<a href="${RELEASES_URL}">ver releases</a>).</p>
-<h3>Linux (.deb)</h3>
-<p>Instala el nuevo paquete encima; apt actualiza los binarios y reinicia el daemon automáticamente.</p>
-<pre><code>curl -LO ${B}/${A.deb}
-sudo apt install ./${A.deb}</code></pre>
-<h3>Binarios (tar.gz / zip)</h3>
-<p>Para el resto de plataformas, detén el daemon, sustituye los binarios y arráncalo de nuevo:</p>
+        html: `<p>Para actualizar, descarga la nueva versión desde la <a href="/#descargas">página de descargas</a> o desde <a href="${RELEASES_URL}">GitHub releases</a> y reemplaza los binarios. Tu store (<code>~/UnmessaiBackups</code>) y tu <code>config.toml</code> se conservan intactos.</p>
 <pre><code>unmess service stop
-curl -LO ${B}/${A.linuxTar}
-tar -xzf ${A.linuxTar}
-sudo install unmess unmessd /usr/local/bin/
-unmess service start</code></pre>
-<div class="note"><strong>Compatibilidad:</strong> las versiones nuevas leen los stores y configuraciones existentes, así que actualizar no pierde historial. Ante cualquier duda, <code>unmess status</code> confirma que el daemon vuelve a estar activo tras la actualización.</div>`,
+# descarga y reemplaza los binarios (.tar.gz / .deb / .zip según tu plataforma)
+unmess service start
+unmess status                 # confirma que el daemon está activo</code></pre>
+<div class="note"><strong>Compatibilidad:</strong> las versiones nuevas leen los stores y configuraciones existentes. Actualizar nunca pierde historial.</div>`,
       },
       {
         id: "server",
@@ -194,12 +175,25 @@ unmess config                              # ver la config efectiva</code></pre>
 <tr><td><code>max_file_size_mb</code></td><td>Tamaño máximo por fichero para versionar.</td></tr>
 <tr><td><code>retention</code></td><td>Máximo de versiones/días y mínimo a conservar.</td></tr>
 <tr><td><code>ui.port</code></td><td>Puerto de la interfaz local en <code>127.0.0.1</code>.</td></tr>
-</table>`,
-      },
-      {
-        id: "privacy",
-        title: "Privacidad",
-        html: `<p>Local-first: tus datos <strong>no salen de tu equipo</strong>. Sin nube salvo que tú lo configures explícitamente. La interfaz se sirve solo en <code>127.0.0.1</code> y nunca se expone a la red.</p>`,
+</table>
+<h3>Ejemplo de configuración</h3>
+<pre><code># ~/.config/unmessai/config.toml
+debounce_seconds = 5
+included_paths = ["/home/usuario/proyectos"]
+excluded_paths = ["/home/usuario/descargas"]
+exclude_names = [".git", "node_modules", "__pycache__"]
+max_file_size_mb = 50
+
+[retention]
+max_versions = 20
+max_days = 90
+min_versions = 3</code></pre>
+<h3>Consultar y modificar desde el CLI</h3>
+<pre><code>unmess config                        # ver toda la configuración
+unmess config get debounce_seconds   # leer una clave
+unmess config set debounce_seconds 10
+unmess config set included_paths "/home/usuario/proyectos,/home/usuario/docs"
+unmess config set retention.max_versions 30</code></pre>`,
       },
     ],
   },
@@ -213,6 +207,17 @@ unmess config                              # ver la config efectiva</code></pre>
         title: "What unmessai is",
         html: `<p>unmessai versions every meaningful change to your files in the background —outside your git repositories— and lets you restore any earlier version. It protects against accidental deletions or edits, including those made by an AI agent operating on your file system. Everything stays on your machine: no cloud.</p>
 <p>It ships as three pieces: the <code>unmess</code> CLI, the <code>unmessd</code> daemon (watches and versions), and the <code>unmess-app</code> native app (system tray and its own window, included in the Linux package).</p>`,
+      },
+      {
+        id: "how",
+        title: "How it works",
+        html: `<ol>
+<li><strong>Watches</strong> your home folder using the OS's native file-system API.</li>
+<li><strong>Coalesces</strong> changes (debounce) so it doesn't version every keystroke.</li>
+<li><strong>Saves</strong> each version to your local store (<code>~/UnmessaiBackups</code>), with an activity journal.</li>
+<li><strong>Prunes</strong> by retention (number of versions, age) so it doesn't grow unbounded.</li>
+</ol>
+<p>Excluded: your git repositories (which already keep their own history), the store itself, and any paths/names excluded in the configuration.</p>`,
       },
       {
         id: "install",
@@ -242,29 +247,6 @@ tar -xf ${A.winZip}
 windows-amd64\\unmess.exe service install
 windows-amd64\\unmess.exe ui --browser</code></pre>
 <div class="note"><strong>Note:</strong> on first run, unmessai creates its default configuration and starts protecting your home folder (excluding Downloads, Videos, Music, <code>node_modules</code>, etc.).</div>`,
-      },
-      {
-        id: "how",
-        title: "How it works",
-        html: `<ol>
-<li><strong>Watches</strong> your home folder using the OS's native file-system API.</li>
-<li><strong>Coalesces</strong> changes (debounce) so it doesn't version every keystroke.</li>
-<li><strong>Saves</strong> each version to your local store (<code>~/UnmessaiBackups</code>), with an activity journal.</li>
-<li><strong>Prunes</strong> by retention (number of versions, age) so it doesn't grow unbounded.</li>
-</ol>
-<p>Excluded: your git repositories (which already keep their own history), the store itself, and any paths/names excluded in the configuration.</p>`,
-      },
-      {
-        id: "app",
-        title: "The native app",
-        html: `<p>On Linux (the <code>.deb</code> package), unmessai integrates as a native application on your system:</p>
-<div class="cards">
-<div class="card"><h3>Tray icon</h3><p>A menu to open the window, pause/resume protection and quit. The icon turns amber while paused.</p></div>
-<div class="card"><h3>Its own window</h3><p>The interface opens in its own window (not the browser), with search, history, diff and restore.</p></div>
-<div class="card"><h3>Notifications</h3><p>System alerts when a version is saved, a restore completes, or an error occurs.</p></div>
-</div>
-<p><strong>Pausing</strong> stops versioning (e.g. during a bulk file operation); while paused, changes are not saved. Resuming protects again.</p>
-<p>On macOS, Windows or tarball installs you get the same interface in the browser via <code>unmess ui --browser</code>, served locally on <code>127.0.0.1</code>.</p>`,
       },
       {
         id: "restore",
@@ -317,19 +299,12 @@ unmess --config /path/config.toml status</code></pre>`,
       {
         id: "updates",
         title: "Updates",
-        html: `<p>unmessai does not update itself: you download the new version and replace the binaries. Your store (<code>~/UnmessaiBackups</code>) and your <code>config.toml</code> stay untouched. The latest version is <code>${V}</code> (<a href="${RELEASES_URL}">see releases</a>).</p>
-<h3>Linux (.deb)</h3>
-<p>Install the new package on top; apt updates the binaries and restarts the daemon automatically.</p>
-<pre><code>curl -LO ${B}/${A.deb}
-sudo apt install ./${A.deb}</code></pre>
-<h3>Binaries (tar.gz / zip)</h3>
-<p>On other platforms, stop the daemon, replace the binaries and start it again:</p>
+        html: `<p>To update, download the new version from the <a href="/#descargas">downloads page</a> or from <a href="${RELEASES_URL}">GitHub releases</a> and replace the binaries. Your store (<code>~/UnmessaiBackups</code>) and <code>config.toml</code> stay untouched.</p>
 <pre><code>unmess service stop
-curl -LO ${B}/${A.linuxTar}
-tar -xzf ${A.linuxTar}
-sudo install unmess unmessd /usr/local/bin/
-unmess service start</code></pre>
-<div class="note"><strong>Compatibility:</strong> newer versions read existing stores and configs, so updating never loses history. If in doubt, <code>unmess status</code> confirms the daemon is active again after the update.</div>`,
+# download and replace the binaries (.tar.gz / .deb / .zip per your platform)
+unmess service start
+unmess status                 # confirm the daemon is active</code></pre>
+<div class="note"><strong>Compatibility:</strong> newer versions read existing stores and configs. Updating never loses history.</div>`,
       },
       {
         id: "server",
@@ -368,12 +343,25 @@ unmess config                              # show the effective config</code></p
 <tr><td><code>max_file_size_mb</code></td><td>Maximum per-file size to version.</td></tr>
 <tr><td><code>retention</code></td><td>Max versions/days and minimum to keep.</td></tr>
 <tr><td><code>ui.port</code></td><td>Port of the local interface on <code>127.0.0.1</code>.</td></tr>
-</table>`,
-      },
-      {
-        id: "privacy",
-        title: "Privacy",
-        html: `<p>Local-first: your data <strong>never leaves your machine</strong>. No cloud unless you configure it explicitly. The interface is served only on <code>127.0.0.1</code> and is never exposed to the network.</p>`,
+</table>
+<h3>Example configuration</h3>
+<pre><code># ~/.config/unmessai/config.toml
+debounce_seconds = 5
+included_paths = ["/home/user/projects"]
+excluded_paths = ["/home/user/downloads"]
+exclude_names = [".git", "node_modules", "__pycache__"]
+max_file_size_mb = 50
+
+[retention]
+max_versions = 20
+max_days = 90
+min_versions = 3</code></pre>
+<h3>Query and modify from the CLI</h3>
+<pre><code>unmess config                        # show the full configuration
+unmess config get debounce_seconds   # read a single key
+unmess config set debounce_seconds 10
+unmess config set included_paths "/home/user/projects,/home/user/docs"
+unmess config set retention.max_versions 30</code></pre>`,
       },
     ],
   },
