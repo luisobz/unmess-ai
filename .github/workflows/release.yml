@@ -111,10 +111,6 @@ jobs:
           name: windows-binaries
           path: dist/windows-amd64
 
-      - name: Instalar Inno Setup
-        shell: pwsh
-        run: choco install innosetup --no-progress -y
-
       - name: Compilar instalador (Inno Setup)
         shell: pwsh
         run: |
