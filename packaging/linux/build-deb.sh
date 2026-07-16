@@ -67,9 +67,12 @@ EOF
 cat > "$PKG/DEBIAN/prerm" <<'EOF'
 #!/bin/sh
 set -e
-# Mata cualquier daemon corriendo antes de desinstalar/actualizar para que
-# el nuevo binario (con la UI embebida actualizada) tome el relevo.
+# Mata daemon y app nativa antes de desinstalar/actualizar para que el nuevo
+# binario (con la UI embebida actualizada) tome el relevo. Si se dejara viva la
+# app vieja, su WebView seguiría con el token del daemon anterior y, al arrancar
+# el daemon nuevo (token nuevo), toda petición daría 401 "token inválido".
 pkill unmessd 2>/dev/null || true
+pkill unmess-app 2>/dev/null || true
 EOF
 chmod 0755 "$PKG/DEBIAN/prerm"
 
@@ -81,11 +84,13 @@ if command -v gtk-update-icon-cache >/dev/null 2>&1; then
 fi
 # postinst corre como root durante la instalación: NO arrancar el daemon
 # aquí, o quedaría corriendo como root para siempre (~ se expandiría a
-# /root en vez de al home del usuario). Solo matamos cualquier daemon viejo
-# que pudiera haber quedado de una instalación previa con este bug; el
-# daemon correcto lo arranca la sesión del usuario (autostart de la bandeja
-# o `unmess ui`).
+# /root en vez de al home del usuario). Solo matamos cualquier daemon o app
+# viejos que pudieran haber quedado de una instalación previa (la app vieja
+# conservaría el token del daemon anterior y daría 401); el daemon y la app
+# correctos los arranca la sesión del usuario (autostart de la bandeja o
+# `unmess ui`).
 pkill unmessd 2>/dev/null || true
+pkill unmess-app 2>/dev/null || true
 echo "unmessai instalado. Abre la app desde el lanzador o ejecuta: unmess ui"
 EOF
 chmod 0755 "$PKG/DEBIAN/postinst"

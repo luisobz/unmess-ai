@@ -12,12 +12,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/luisobz/unmess-ai/internal/daemon"
@@ -26,8 +28,12 @@ import (
 // daemonClient es un cliente del API local del daemon.
 type daemonClient struct {
 	baseURL string
-	token   string
 	http    *http.Client
+
+	// mu protege token, que se refresca si el daemon se reinicia y regenera el
+	// token mientras la app sigue viva.
+	mu    sync.Mutex
+	token string
 }
 
 // fetchToken pide el token de sesión a un daemon ya en marcha. Sirve además como
@@ -91,6 +97,60 @@ func newClient(baseURL, token string) *daemonClient {
 		// petición puntual usa su propio contexto con timeout.
 		http: &http.Client{},
 	}
+}
+
+// currentToken devuelve el token actual de forma segura frente a concurrencia.
+func (c *daemonClient) currentToken() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.token
+}
+
+// refreshToken vuelve a pedir el token al daemon y lo actualiza. Se usa cuando
+// una petición devuelve 401: el daemon pudo reiniciarse (actualización, crash,
+// `snap refresh`) y regenerar el token, dejando el que teníamos inválido.
+func (c *daemonClient) refreshToken() error {
+	tok, err := fetchToken(c.baseURL)
+	if err != nil {
+		return err
+	}
+	c.mu.Lock()
+	c.token = tok
+	c.mu.Unlock()
+	return nil
+}
+
+// doAuthed hace una petición autenticada al daemon. Ante un 401 refresca el
+// token una vez y reintenta, para sobrevivir a un reinicio del daemon sin tener
+// que reiniciar la app.
+func (c *daemonClient) doAuthed(ctx context.Context, method, path string, body []byte) (*http.Response, error) {
+	send := func() (*http.Response, error) {
+		var r io.Reader
+		if body != nil {
+			r = bytes.NewReader(body)
+		}
+		req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, r)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", "Bearer "+c.currentToken())
+		if body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		return c.http.Do(req)
+	}
+	resp, err := send()
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode == http.StatusUnauthorized {
+		resp.Body.Close()
+		if rerr := c.refreshToken(); rerr != nil {
+			return nil, rerr
+		}
+		return send()
+	}
+	return resp, nil
 }
 
 // startDaemon localiza y lanza el binario unmessd.
@@ -169,13 +229,7 @@ func (c *daemonClient) setPaused(paused bool) error {
 	body, _ := json.Marshal(map[string]bool{"paused": paused})
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/pause", bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := c.http.Do(req)
+	resp, err := c.doAuthed(ctx, http.MethodPost, "/api/pause", body)
 	if err != nil {
 		return err
 	}
@@ -186,17 +240,21 @@ func (c *daemonClient) setPaused(paused bool) error {
 	return nil
 }
 
-// status consulta GET /api/status (usado para conocer el estado inicial de pausa).
+// status consulta GET /api/status (usado para conocer el estado inicial de
+// pausa). Comprueba el código HTTP: un 401 (u otro no-200) debe ser un error,
+// no decodificarse como si fuera un estado válido (el cuerpo de error tiene
+// paused ausente → false, y silenciaría un fallo de autenticación).
 func (c *daemonClient) status() (paused bool, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/status", nil)
-	req.Header.Set("Authorization", "Bearer "+c.token)
-	resp, err := c.http.Do(req)
+	resp, err := c.doAuthed(ctx, http.MethodGet, "/api/status", nil)
 	if err != nil {
 		return false, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("status: estado %d", resp.StatusCode)
+	}
 	var body struct {
 		Paused bool `json:"paused"`
 	}
@@ -218,7 +276,11 @@ func (c *daemonClient) streamEvents(ctx context.Context, onEvent func(daemon.Eve
 		if ctx.Err() != nil {
 			return
 		}
-		_ = err
+		if err == nil {
+			// La conexión estuvo viva y terminó limpia: reconecta rápido en vez
+			// de arrastrar el backoff acumulado por caídas anteriores.
+			backoff = time.Second
+		}
 		select {
 		case <-ctx.Done():
 			return
@@ -236,13 +298,21 @@ func (c *daemonClient) readEventStream(ctx context.Context, onEvent func(daemon.
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Authorization", "Bearer "+c.currentToken())
 	req.Header.Set("Accept", "text/event-stream")
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusUnauthorized {
+		// El daemon se reinició y regeneró el token: lo refrescamos para que la
+		// siguiente reconexión (tras el backoff) use el token nuevo. Si no,
+		// streamEvents reintentaría para siempre con el token viejo y la bandeja
+		// nunca recuperaría el estado.
+		_ = c.refreshToken()
+		return fmt.Errorf("events: 401 (token refrescado)")
+	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("events: estado %d", resp.StatusCode)
 	}

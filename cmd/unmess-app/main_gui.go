@@ -126,6 +126,13 @@ func (a *appState) run() error {
 				// ventana al frente y, si trae un objetivo, navega a él.
 				if rel := openArgFrom(data.Args); rel != "" && a.window != nil {
 					a.window.SetURL(a.urlFor(rel))
+				} else if a.window != nil {
+					// Sin objetivo, recargamos el WebView. Si el daemon se
+					// reinició (típico tras una actualización: el paquete relanza
+					// unmessd mientras esta app sigue viva), la recarga vuelve a
+					// pedir el token y trae los assets embebidos de la versión
+					// nueva, evitando el 401 con el token viejo en memoria.
+					a.window.Reload()
 				}
 				a.showWindow()
 			},

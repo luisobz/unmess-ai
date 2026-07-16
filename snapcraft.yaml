@@ -1,6 +1,8 @@
 name: unmessai
 base: core24
-version: git
+# La versión la fija la parte unmessai (craftctl set version): mismo
+# git describe sin el prefijo "v", como el .deb y los tar.gz.
+adopt-info: unmessai
 summary: Automatic background file versioning
 description: |
   unmessai protects you from accidental deletions or edits — including those
@@ -44,9 +46,14 @@ apps:
       QT_QPA_PLATFORMTHEME: gtk3
       GTK_USE_PORTAL: 1
 
+  # unmessd NO es un `daemon:` del sistema a propósito. Un daemon de snap corre
+  # como root con HOME en $SNAP_DATA (revisionado): no vería el home del usuario
+  # que el producto promete proteger, su prefix cambiaría de ruta en cada
+  # refresh, y competiría por el puerto 48111 con el daemon que la app arranca
+  # como usuario (dejando uno de los dos vivo sin UI). Lo arranca la app nativa
+  # (ensureDaemon → $SNAP/bin/unmessd) como el usuario, igual que en el .deb.
   unmessd:
     command: bin/unmessd
-    daemon: simple
     plugs:
       - home
       - network
@@ -84,6 +91,7 @@ parts:
     override-build: |
       export VER=$(git describe --tags --always | sed 's/^v//')
       export LDF="-s -w -X main.version=${VER}"
+      craftctl set version="$VER"
 
       # Compilar daemon y CLI (Go puro)
       CGO_ENABLED=0 go build -trimpath -ldflags="$LDF" \

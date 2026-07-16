@@ -19,10 +19,36 @@ const REFRESH_MS = 15000;
 
 // --- helpers de red ---
 
+// tokenRefresh deduplica el refresco del token: si varias peticiones reciben
+// 401 a la vez, todas esperan al mismo fetchToken en vuelo en vez de disparar
+// una estampida contra /api/token.
+let tokenRefresh = null;
+function refreshToken() {
+  if (!tokenRefresh) {
+    tokenRefresh = fetchToken().finally(() => { tokenRefresh = null; });
+  }
+  return tokenRefresh;
+}
+
+// api hace una petición autenticada al daemon. Si el daemon se reinició y
+// regeneró el token (p. ej. tras una actualización o un `snap refresh`), la
+// primera respuesta será 401: en ese caso refrescamos el token una vez y
+// reintentamos, de modo que la sesión se recupera sola sin recargar la página.
 async function api(path, opts = {}) {
-  const headers = Object.assign({}, opts.headers || {});
-  if (state.token) headers["Authorization"] = "Bearer " + state.token;
-  const res = await fetch(path, Object.assign({}, opts, { headers }));
+  const send = () => {
+    const headers = Object.assign({}, opts.headers || {});
+    if (state.token) headers["Authorization"] = "Bearer " + state.token;
+    return fetch(path, Object.assign({}, opts, { headers }));
+  };
+  let res = await send();
+  if (res.status === 401) {
+    try {
+      await refreshToken();
+    } catch (_) {
+      return res; // el daemon no responde: devolvemos el 401 original
+    }
+    res = await send();
+  }
   return res;
 }
 
