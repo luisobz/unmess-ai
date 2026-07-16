@@ -176,7 +176,7 @@ jobs:
         with:
           snap: dist/unmessai_*.snap
           release: stable
-          credentials: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+          store_login: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
 
       - name: Subir binarios al servidor (descarga alternativa)
         if: ${{ vars.DOWNLOADS_PATH != '' }}
