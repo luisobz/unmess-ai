@@ -45,25 +45,52 @@ const h3p = (kind: keyof typeof PICON, title: string): string =>
 export const DOCS: Record<"es" | "en", DocsPage> = {
   es: {
     pageTitle: "Documentación",
-    subtitle: "Protección automática y versionado de tus archivos. Local-first.",
+    subtitle: "Protección automática y versionado de tus archivos, sin depender de la nube.",
     tocLabel: "Contenido",
     sections: [
       {
         id: "what",
         title: "Qué es unmessai",
-        html: `<p>unmessai versiona en segundo plano cada cambio relevante en tus archivos —fuera de tus repositorios git— y te deja restaurar cualquier versión anterior. Protege frente a borrados o modificaciones accidentales, incluidos los provocados por un agente de IA operando sobre tu sistema de archivos. Todo se guarda en tu equipo: sin nube.</p>
-<p>Se distribuye en tres piezas: el CLI <code>unmess</code>, el daemon <code>unmessd</code> (vigila y versiona) y la app nativa <code>unmess-app</code> (bandeja del sistema y ventana propia, incluida en el paquete de Linux).</p>`,
+        html: `<p>unmessai protege automáticamente tus archivos. Si tú (o un agente de IA) modifica o borra algo por error, puedes volver atrás en segundos. Todo ocurre en tu equipo, sin depender de la nube.</p>
+<h3>¿Por qué usar unmessai?</h3>
+<ul>
+<li>Un agente de IA borra o reescribe media carpeta de golpe.</li>
+<li>Un script lanza un <code>rm</code> equivocado.</li>
+<li>Sobrescribes sin darte cuenta un archivo importante.</li>
+<li>Modificas un fichero y, horas después, descubres que la versión anterior era mejor.</li>
+</ul>
+<p>Con unmessai lo restauras en segundos, sin depender de Git ni de copias de seguridad externas.</p>
+<div class="note">Cuando Cursor, Claude Code, Codex o cualquier otro agente de IA modifica cientos de archivos automáticamente, unmessai guarda una versión local de cada cambio. Si algo sale mal, restauras el fichero tal y como estaba.</div>
+<details>
+<summary>Detalles técnicos</summary>
+<p>Se distribuye en tres piezas: el CLI <code>unmess</code>, el daemon <code>unmessd</code> (vigila y versiona) y la app nativa <code>unmess-app</code> (bandeja del sistema y ventana propia, incluida en el paquete de Linux).</p>
+</details>`,
       },
       {
         id: "how",
         title: "Cómo funciona",
-        html: `<ol>
+        html: `<ul>
+<li>Detecta los cambios en tus archivos automáticamente, sin que tengas que hacer nada.</li>
+<li>Guarda una versión nueva cuando el archivo deja de cambiar.</li>
+<li>Conserva el historial de cada fichero para que puedas volver atrás cuando lo necesites.</li>
+<li>Elimina versiones antiguas según la retención que configures, para no crecer sin límite.</li>
+</ul>
+<h3>Qué no se versiona</h3>
+<ul>
+<li>El propio store de versiones.</li>
+<li>Carpetas habituales de sistema y dependencias: Descargas, Vídeos, Música, <code>node_modules</code>, <code>.git</code>, <code>__pycache__</code>, etc.</li>
+<li>Lo que coincida con tu <code>.gitignore</code>, si tienes activado <code>gitignore_aware</code>. El resto de cambios en tus proyectos, aunque estén en un repositorio git, sí se versiona.</li>
+<li>Cualquier ruta o nombre que excluyas tú en la configuración.</li>
+</ul>
+<details>
+<summary>Detalles técnicos</summary>
+<ol>
 <li><strong>Vigila</strong> tu carpeta personal con la API nativa del sistema de archivos.</li>
 <li><strong>Agrupa</strong> los cambios (debounce) para no versionar cada pulsación.</li>
 <li><strong>Guarda</strong> cada versión en tu store local (<code>~/UnmessaiBackups</code>), con un journal de actividad.</li>
-<li><strong>Poda</strong> por retención (nº de versiones, antigüedad) para no crecer sin límite.</li>
+<li><strong>Poda</strong> por retención (nº de versiones, antigüedad). Puedes ajustarla en <a href="#config">Configuración</a>.</li>
 </ol>
-<p>Quedan fuera tus repositorios git (que ya tienen su propio historial), el propio store y las rutas/nombres excluidos en la configuración.</p>`,
+</details>`,
       },
       {
         id: "install",
@@ -74,11 +101,6 @@ ${h3p("debian", "Linux (Debian / Ubuntu)")}
 <pre><code>curl -LO ${B}/${A.deb}
 sudo apt install ./${A.deb}</code></pre>
 <div class="note success">La app aparece en el lanzador como <strong>unmessai</strong> y se inicia con la sesión, mostrando su icono en la barra superior. También puedes abrirla con <code>unmess ui</code>.</div>
-${h3p("tar", "Linux (otras distros · binarios)")}
-<p>Descarga el <code>.tar.gz</code>, extráelo y copia los binarios al <code>PATH</code>. La app con ventana solo se compila para el <code>.deb</code>; con el tarball usas el CLI y la interfaz web local.</p>
-<pre><code>curl -LO ${B}/${A.linuxTar}
-tar -xzf ${A.linuxTar}
-sudo install unmess unmessd /usr/local/bin/</code></pre>
 ${h3p("mac", "macOS")}
 <p>Descarga el <code>.tar.gz</code> de tu chip (Apple Silicon o Intel), extráelo e instala los binarios:</p>
 <pre><code>curl -LO ${B}/${A.macArmTar}   # Intel: ${A.macIntelTar}
@@ -86,18 +108,33 @@ tar -xzf ${A.macArmTar}
 sudo install unmess unmessd /usr/local/bin/</code></pre>
 <div class="note">Para vigilar carpetas arbitrarias, macOS pide conceder <strong>Acceso Total al Disco</strong> a <code>unmessd</code> en <em>Ajustes del Sistema → Privacidad y Seguridad</em>. Arranca el daemon con <code>unmess service install</code> y abre la interfaz con <code>unmess ui --browser</code>.</div>
 ${h3p("win", "Windows")}
-<p>Descarga y ejecuta el instalador <a href="${B}/${A.winSetup}"><code>${A.winSetup}</code></a>. No pide administrador: durante la instalación eliges qué carpeta vigilar y dónde guardar las versiones, y deja la app en la bandeja del sistema (con autoarranque al iniciar sesión).</p>
-<p>Alternativa portable, sin instalador: descarga el <code>.zip</code>, descomprímelo (Windows 10/11 traen <code>curl</code> y <code>tar</code>) y ejecuta desde la carpeta <code>windows-amd64\\</code>:</p>
+<p>Descarga y ejecuta el instalador <a href="${B}/${A.winSetup}"><code>${A.winSetup}</code></a>. Durante la instalación eliges qué carpeta vigilar y dónde guardar las versiones, y deja la app en la bandeja del sistema (con autoarranque al iniciar sesión).</p>
+<div class="note"><strong>Nota:</strong> la primera vez, unmessai crea su configuración por defecto y empieza a proteger tu carpeta personal (excluyendo Descargas, Vídeos, Música, <code>node_modules</code>, etc.).</div>
+<details>
+<summary>Instalación avanzada</summary>
+${h3p("tar", "Linux (otras distros · binarios)")}
+<p>Descarga el <code>.tar.gz</code>, extráelo y copia los binarios al <code>PATH</code>. La app con ventana solo se compila para el <code>.deb</code>; con el tarball usas el CLI y la interfaz web local.</p>
+<pre><code>curl -LO ${B}/${A.linuxTar}
+tar -xzf ${A.linuxTar}
+sudo install unmess unmessd /usr/local/bin/</code></pre>
+<h3>Windows portable (sin instalador)</h3>
+<p>Descarga el <code>.zip</code>, descomprímelo (Windows 10/11 traen <code>curl</code> y <code>tar</code>) y ejecuta desde la carpeta <code>windows-amd64\\</code>:</p>
 <pre><code>curl -LO ${B}/${A.winZip}
 tar -xf ${A.winZip}
 windows-amd64\\unmess.exe service install
 windows-amd64\\unmess.exe ui --browser</code></pre>
-<div class="note"><strong>Nota:</strong> la primera vez, unmessai crea su configuración por defecto y empieza a proteger tu carpeta personal (excluyendo Descargas, Vídeos, Música, <code>node_modules</code>, etc.).</div>`,
+</details>`,
       },
       {
         id: "restore",
         title: "Restaurar una versión",
         html: `<p>Restaurar <strong>nunca es destructivo</strong>: antes de sobrescribir, unmessai guarda una copia de seguridad del estado actual como una versión nueva.</p>
+<h3>Casos de uso habituales</h3>
+<ul>
+<li>Un agente de IA borró o reescribió una carpeta entera → restauras cada fichero a como estaba.</li>
+<li>Un script sobrescribió un archivo de configuración → recuperas la versión anterior en segundos.</li>
+<li>Cambiaste un documento y prefieres la versión de ayer → la comparas (diff) y restauras si hace falta.</li>
+</ul>
 <h3>Desde la app</h3>
 <p>Elige el fichero, selecciona la versión, compárala (diff) si quieres y pulsa <em>Restaurar versión</em>.</p>
 <h3>Desde el CLI</h3>
@@ -174,7 +211,7 @@ unmess config set debounce_seconds 10
 unmess config set retention.max_versions 50
 unmess config                              # ver la config efectiva</code></pre>
 <h3>4. Consultar y restaurar</h3>
-<p>Usa los comandos habituales desde el propio servidor (<code>unmess status</code>, <code>unmess ls</code>, <code>unmess versions</code>, <code>unmess restore</code>). Si necesitas la interfaz web, <code>unmess ui --browser</code> imprime la URL local; en un servidor remoto ábrela por un túnel SSH (<code>ssh -L 48111:127.0.0.1:48111 servidor</code>) — nunca la expongas directamente a la red.</p>`,
+<p>Usa los comandos habituales desde el propio servidor (<code>unmess status</code>, <code>unmess ls</code>, <code>unmess versions</code>, <code>unmess restore</code>). Si necesitas la interfaz web, <code>unmess ui --browser</code> imprime la URL local; en un servidor remoto ábrela por un túnel SSH (<code>ssh -L 48111:127.0.0.1:48111 servidor</code>). Nunca la expongas directamente a la red.</p>`,
       },
       {
         id: "config",
@@ -213,25 +250,52 @@ unmess config set retention.max_versions 30</code></pre>`,
   },
   en: {
     pageTitle: "Documentation",
-    subtitle: "Automatic protection and versioning for your files. Local-first.",
+    subtitle: "Automatic protection and versioning for your files, no cloud involved.",
     tocLabel: "Contents",
     sections: [
       {
         id: "what",
         title: "What unmessai is",
-        html: `<p>unmessai versions every meaningful change to your files in the background —outside your git repositories— and lets you restore any earlier version. It protects against accidental deletions or edits, including those made by an AI agent operating on your file system. Everything stays on your machine: no cloud.</p>
-<p>It ships as three pieces: the <code>unmess</code> CLI, the <code>unmessd</code> daemon (watches and versions), and the <code>unmess-app</code> native app (system tray and its own window, included in the Linux package).</p>`,
+        html: `<p>unmessai automatically protects your files. If you (or an AI agent) modify or delete something by mistake, you can roll it back in seconds. Everything happens on your machine, with no cloud involved.</p>
+<h3>Why use unmessai?</h3>
+<ul>
+<li>An AI agent deletes or rewrites half a folder at once.</li>
+<li>A script runs the wrong <code>rm</code>.</li>
+<li>You overwrite an important file without noticing.</li>
+<li>You edit a file and, hours later, realize the previous version was better.</li>
+</ul>
+<p>With unmessai you restore it in seconds, without relying on Git or external backups.</p>
+<div class="note">When Cursor, Claude Code, Codex or any other AI agent automatically modifies hundreds of files, unmessai saves a local version of every change. If something goes wrong, you restore the file exactly as it was.</div>
+<details>
+<summary>Technical details</summary>
+<p>It ships as three pieces: the <code>unmess</code> CLI, the <code>unmessd</code> daemon (watches and versions), and the <code>unmess-app</code> native app (system tray and its own window, included in the Linux package).</p>
+</details>`,
       },
       {
         id: "how",
         title: "How it works",
-        html: `<ol>
+        html: `<ul>
+<li>Detects changes to your files automatically, with nothing for you to do.</li>
+<li>Saves a new version once the file stops changing.</li>
+<li>Keeps each file's history so you can go back whenever you need.</li>
+<li>Removes old versions based on the retention you configure, so it doesn't grow unbounded.</li>
+</ul>
+<h3>What doesn't get versioned</h3>
+<ul>
+<li>The version store itself.</li>
+<li>Common system/dependency folders: Downloads, Videos, Music, <code>node_modules</code>, <code>.git</code>, <code>__pycache__</code>, etc.</li>
+<li>Anything matching your <code>.gitignore</code>, if <code>gitignore_aware</code> is enabled. Other changes in your projects are versioned even inside a git repository.</li>
+<li>Any path or name you exclude yourself in the configuration.</li>
+</ul>
+<details>
+<summary>Technical details</summary>
+<ol>
 <li><strong>Watches</strong> your home folder using the OS's native file-system API.</li>
 <li><strong>Coalesces</strong> changes (debounce) so it doesn't version every keystroke.</li>
 <li><strong>Saves</strong> each version to your local store (<code>~/UnmessaiBackups</code>), with an activity journal.</li>
-<li><strong>Prunes</strong> by retention (number of versions, age) so it doesn't grow unbounded.</li>
+<li><strong>Prunes</strong> by retention (number of versions, age). Adjust it in <a href="#config">Configuration</a>.</li>
 </ol>
-<p>Excluded: your git repositories (which already keep their own history), the store itself, and any paths/names excluded in the configuration.</p>`,
+</details>`,
       },
       {
         id: "install",
@@ -242,11 +306,6 @@ ${h3p("debian", "Linux (Debian / Ubuntu)")}
 <pre><code>curl -LO ${B}/${A.deb}
 sudo apt install ./${A.deb}</code></pre>
 <div class="note success">The app appears in the launcher as <strong>unmessai</strong> and starts with your session, showing its icon in the top bar. You can also open it with <code>unmess ui</code>.</div>
-${h3p("tar", "Linux (other distros · binaries)")}
-<p>Download the <code>.tar.gz</code>, extract it and copy the binaries onto your <code>PATH</code>. The windowed app is only built for the <code>.deb</code>; with the tarball you use the CLI and the local web interface.</p>
-<pre><code>curl -LO ${B}/${A.linuxTar}
-tar -xzf ${A.linuxTar}
-sudo install unmess unmessd /usr/local/bin/</code></pre>
 ${h3p("mac", "macOS")}
 <p>Download the <code>.tar.gz</code> for your chip (Apple Silicon or Intel), extract it and install the binaries:</p>
 <pre><code>curl -LO ${B}/${A.macArmTar}   # Intel: ${A.macIntelTar}
@@ -254,19 +313,34 @@ tar -xzf ${A.macArmTar}
 sudo install unmess unmessd /usr/local/bin/</code></pre>
 <div class="note">To watch arbitrary folders, macOS asks you to grant <strong>Full Disk Access</strong> to <code>unmessd</code> in <em>System Settings → Privacy &amp; Security</em>. Start the daemon with <code>unmess service install</code> and open the interface with <code>unmess ui --browser</code>.</div>
 ${h3p("win", "Windows")}
-<p>Download and run the installer <a href="${B}/${A.winSetup}"><code>${A.winSetup}</code></a>. It doesn't ask for admin rights: during installation you pick which folder to watch and where to store versions, and it leaves the app in the system tray (auto-starting at login).</p>
-<p>Portable alternative, no installer: download the <code>.zip</code>, unpack it (Windows 10/11 ship <code>curl</code> and <code>tar</code>) and run from the <code>windows-amd64\\</code> folder:</p>
+<p>Download and run the installer <a href="${B}/${A.winSetup}"><code>${A.winSetup}</code></a>. During installation you pick which folder to watch and where to store versions, and it leaves the app in the system tray (auto-starting at login).</p>
+<div class="note"><strong>Note:</strong> on first run, unmessai creates its default configuration and starts protecting your home folder (excluding Downloads, Videos, Music, <code>node_modules</code>, etc.).</div>
+<div class="note"><strong>Windows notice:</strong> because the binaries aren't signed with a trusted certificate yet, Edge and Chrome show a "This file isn't downloaded often" warning when downloading the installer. Click <strong>Keep</strong> and then <strong>Keep anyway</strong> to continue. This is a standard Windows warning while our app builds reputation.</div>
+<details>
+<summary>Advanced installation</summary>
+${h3p("tar", "Linux (other distros · binaries)")}
+<p>Download the <code>.tar.gz</code>, extract it and copy the binaries onto your <code>PATH</code>. The windowed app is only built for the <code>.deb</code>; with the tarball you use the CLI and the local web interface.</p>
+<pre><code>curl -LO ${B}/${A.linuxTar}
+tar -xzf ${A.linuxTar}
+sudo install unmess unmessd /usr/local/bin/</code></pre>
+<h3>Windows portable (no installer)</h3>
+<p>Download the <code>.zip</code>, unpack it (Windows 10/11 ship <code>curl</code> and <code>tar</code>) and run from the <code>windows-amd64\\</code> folder:</p>
 <pre><code>curl -LO ${B}/${A.winZip}
 tar -xf ${A.winZip}
 windows-amd64\\unmess.exe service install
 windows-amd64\\unmess.exe ui --browser</code></pre>
-<div class="note"><strong>Note:</strong> on first run, unmessai creates its default configuration and starts protecting your home folder (excluding Downloads, Videos, Music, <code>node_modules</code>, etc.).</div>
-<div class="note"><strong>Windows notice:</strong> because the binaries aren't signed with a trusted certificate yet, Edge and Chrome show a "This file isn't downloaded often" warning when downloading the installer. Click <strong>Keep</strong> and then <strong>Keep anyway</strong> to continue. This is a standard Windows warning while our app builds reputation.</div>`,
+</details>`,
       },
       {
         id: "restore",
         title: "Restoring a version",
         html: `<p>Restoring is <strong>never destructive</strong>: before overwriting, unmessai saves a backup of the current state as a new version.</p>
+<h3>Common recovery scenarios</h3>
+<ul>
+<li>An AI agent deleted or rewrote an entire folder → you restore every file back to how it was.</li>
+<li>A script overwrote a config file → you recover the previous version in seconds.</li>
+<li>You changed a document and prefer yesterday's version → diff it and restore if needed.</li>
+</ul>
 <h3>From the app</h3>
 <p>Pick the file, select the version, compare it (diff) if you want, and click <em>Restore version</em>.</p>
 <h3>From the CLI</h3>
@@ -343,7 +417,7 @@ unmess config set debounce_seconds 10
 unmess config set retention.max_versions 50
 unmess config                              # show the effective config</code></pre>
 <h3>4. Query and restore</h3>
-<p>Use the usual commands from the server itself (<code>unmess status</code>, <code>unmess ls</code>, <code>unmess versions</code>, <code>unmess restore</code>). If you need the web interface, <code>unmess ui --browser</code> prints the local URL; on a remote server open it over an SSH tunnel (<code>ssh -L 48111:127.0.0.1:48111 server</code>) — never expose it directly to the network.</p>`,
+<p>Use the usual commands from the server itself (<code>unmess status</code>, <code>unmess ls</code>, <code>unmess versions</code>, <code>unmess restore</code>). If you need the web interface, <code>unmess ui --browser</code> prints the local URL; on a remote server open it over an SSH tunnel (<code>ssh -L 48111:127.0.0.1:48111 server</code>). Never expose it directly to the network.</p>`,
       },
       {
         id: "config",

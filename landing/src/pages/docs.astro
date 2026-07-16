@@ -284,6 +284,47 @@ const SECTION_ICONS: Record<string, string> = {
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill-rule='evenodd' d='M2 12a10 10 0 1 0 20 0 10 10 0 1 0-20 0zM9.5 16 6.8 13.3 8.3 11.8 9.5 13 15 7.5 16.5 9z'/%3E%3C/svg%3E");
   }
 
+  /* Colapsables (detalles técnicos, instalación avanzada). Mismo lenguaje
+     visual que .note: superficie gris redondeada; el summary hace de
+     cabecera clicable con una flecha que rota al abrir. */
+  .docs-content :global(details) {
+    margin: 18px 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--doc-note-bg);
+    overflow: hidden;
+  }
+  .docs-content :global(details:last-child) { margin-bottom: 0; }
+  .docs-content :global(details summary) {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    font-weight: 650;
+    color: var(--text);
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+  }
+  .docs-content :global(details summary::-webkit-details-marker) { display: none; }
+  .docs-content :global(details summary::before) {
+    content: "";
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border-right: 2px solid var(--text-muted);
+    border-bottom: 2px solid var(--text-muted);
+    transform: rotate(-45deg);
+    transition: transform .15s ease;
+  }
+  .docs-content :global(details[open] summary::before) { transform: rotate(45deg); }
+  .docs-content :global(details > :not(summary)) {
+    padding: 0 16px 16px;
+  }
+  .docs-content :global(details h3:first-of-type) {
+    margin-top: 0;
+  }
+
   /* Encabezados de plataforma (Instalación): logo real de la plataforma,
      monocromo. En oscuro se invierte para no perderse sobre el fondo. */
   .docs-content :global(h3.h3p) {
