@@ -65,14 +65,13 @@ export const DOWNLOADS: Download[] = [
 ];
 
 export interface Donation {
-  id: "kofi" | "ghsponsors";
+  id: "kofi";
   label: string;
   href: string;
 }
 
 export const DONATIONS: Donation[] = [
   { id: "kofi", label: "Ko-fi", href: "https://ko-fi.com/luisobz" },
-  { id: "ghsponsors", label: "GitHub Sponsors", href: "https://github.com/sponsors/luisobz" },
 ];
 
 export const LANG_LABELS: Record<Lang, string> = { es: "ES", en: "EN" };

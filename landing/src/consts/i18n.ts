@@ -62,31 +62,31 @@ export const DICT: Record<Lang, Copy> = {
     heroKicker: "Local-first · Sin nube",
     heroTitle: "Tus archivos, a prueba de errores.",
     heroLead:
-      "Protección automática frente a borrados y modificaciones accidentales, incluso los que provoca una IA operando sobre tu equipo.",
+      "Protección automática frente a modificaciones y borrados accidentales, manuales o provocados por la IA.",
     heroCta: "Descargar unmessai",
     heroDocs: "Documentación",
     trust1: "Versiona en segundo plano",
-    trust2: "Fuera de tus repos git",
-    trust3: "Restaura en segundos",
+    trust2: "Todo en local",
+    trust3: "Busca y restaura en segundos",
     artAlt:
       "Ilustración del historial de versiones de un archivo, con versiones anteriores restaurables",
     howEyebrow: "Cómo funciona",
-    howTitle: "Tres pasos, y a olvidarse.",
+    howTitle: "Instala, olvídate y deja que proteja en silencio.",
     howLead:
-      "Sin flujos que aprender ni copias manuales. Se instala una vez y protege en silencio.",
+      "Sin flujos que aprender ni copias manuales. Se instala una vez y trabaja en segundo plano.",
     step1Title: "Instala",
     step1Text:
       "Descarga el paquete de tu sistema y deja unmessai corriendo en segundo plano. Arranca contigo al iniciar sesión.",
     step2Title: "Trabaja como siempre",
     step2Text:
-      "Cada cambio relevante se guarda como versión en tu store local, fuera de tus repos git, sin que tengas que hacer nada.",
+      "Cada cambio relevante se guarda como versión en tu store local, sin subir nada a la nube, sin que tengas que hacer nada.",
     step3Title: "Restaura cuando algo se rompa",
     step3Text:
-      "¿Un archivo borrado o pisado por una IA? Recupera cualquier versión anterior. Restaurar nunca es destructivo.",
+      "¿Un archivo borrado, con conflictos o con cambios pisados por la IA? Recupera cualquier versión anterior. Restaurar nunca es destructivo.",
     dlEyebrow: "Descargas",
     dlTitle: "Elige tu sistema operativo",
     dlLead:
-      "Destacamos el que parece ser el tuyo. Puedes descargar cualquiera de los demás.",
+      "Soporte para varios sistemas operativos. Descarga el tuyo.",
     osTag: "Detectado",
     dlLinux: "Descargar .deb",
     dlMac: "Descargar · Apple Silicon",
@@ -96,9 +96,9 @@ export const DICT: Record<Lang, Copy> = {
     dlWinAlt: "Binarios portables (.zip)",
     dlFoot: "Versión actual {version}.",
     dlAll: "Todas las descargas y notas de la versión",
-    supTitle: "Si quieres dar una propina",
+    supTitle: "¿Quieres colaborar?",
     supText:
-      "unmessai es un servicio que mantengo y mejoro constantemente. Si te aporta valor, puedes dejar una propina para apoyar su desarrollo.",
+      "unmessai es un servicio gratuito. Si te aporta valor y lo consideras, puedes dejarnos una propina.",
     footDl: "Descargas",
     footHow: "Cómo funciona",
     footDocs: "Documentación",
@@ -115,31 +115,31 @@ export const DICT: Record<Lang, Copy> = {
     heroKicker: "Local-first · No cloud",
     heroTitle: "Your files, mistake-proof.",
     heroLead:
-      "Automatic protection against accidental deletions and edits, including those made by an AI operating on your machine.",
+      "Automatic protection against accidental modifications and deletions — whether manual or caused by an AI.",
     heroCta: "Download unmessai",
     heroDocs: "Documentation",
     trust1: "Versions in the background",
-    trust2: "Outside your git repos",
-    trust3: "Restore in seconds",
+    trust2: "All local",
+    trust3: "Search and restore in seconds",
     artAlt:
       "Illustration of a file's version history, with earlier versions ready to restore",
     howEyebrow: "How it works",
-    howTitle: "Three steps, then forget it.",
+    howTitle: "Install, forget it, and let it protect you quietly.",
     howLead:
-      "No workflow to learn, no manual copies. Install once and it protects you quietly.",
+      "No workflows to learn, no manual copies. Install once and it works in the background.",
     step1Title: "Install",
     step1Text:
       "Download the package for your system and let unmessai run in the background. It starts with you at login.",
     step2Title: "Work as usual",
     step2Text:
-      "Every meaningful change is saved as a version in your local store, outside your git repos, without you doing a thing.",
+      "Every meaningful change is saved as a version in your local store, without uploading anything to the cloud, without you doing a thing.",
     step3Title: "Restore when something breaks",
     step3Text:
-      "A file deleted or overwritten by an AI? Recover any earlier version. Restoring is never destructive.",
+      "A file deleted, conflicted, or overwritten by an AI? Recover any earlier version. Restoring is never destructive.",
     dlEyebrow: "Downloads",
     dlTitle: "Choose your operating system",
     dlLead:
-      "We highlight the one that looks like yours. You can download any of the others.",
+      "Multi-platform support. Download yours.",
     osTag: "Detected",
     dlLinux: "Download .deb",
     dlMac: "Download · Apple Silicon",
@@ -149,9 +149,9 @@ export const DICT: Record<Lang, Copy> = {
     dlWinAlt: "Portable binaries (.zip)",
     dlFoot: "Current version {version}.",
     dlAll: "All downloads and release notes",
-    supTitle: "Leave a tip",
+    supTitle: "Want to contribute?",
     supText:
-      "unmessai is a service I build and improve constantly. If it brings you value, consider leaving a tip to support its development.",
+      "unmessai is a free service. If it brings you value and you'd like to, you can leave us a tip.",
     footDl: "Downloads",
     footHow: "How it works",
     footDocs: "Documentation",
