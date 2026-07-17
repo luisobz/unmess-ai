@@ -171,17 +171,16 @@ jobs:
             dist/unmessai_*.snap
           generate_release_notes: true
 
-      # action-publish no expande globs: hay que darle la ruta exacta.
       - name: Localizar el .snap
         id: snapfile
         run: echo "path=$(ls dist/unmessai_*.snap)" >> "$GITHUB_OUTPUT"
 
       - name: Publicar en Snap Store
-        uses: snapcore/action-publish@v1
-        with:
-          snap: ${{ steps.snapfile.outputs.path }}
-          release: stable
-          store_login: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        run: |
+          sudo snap install --classic snapcraft
+          snapcraft upload "${{ steps.snapfile.outputs.path }}" --release stable
 
       - name: Subir binarios al servidor (descarga alternativa)
         if: ${{ vars.DOWNLOADS_PATH != '' }}
