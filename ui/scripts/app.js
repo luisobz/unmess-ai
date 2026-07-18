@@ -371,13 +371,14 @@ function clearSelection() {
   highlightSelectedFile();
 }
 
-// Comparación por defecto: la versión anterior a la seleccionada, o el disco.
+// Comparación por defecto: la versión anterior a la seleccionada.
+// Si no hay anterior (primera versión), no comparamos con nada.
 function defaultCompareTo() {
   const idx = state.versions.findIndex((v) => v.name === state.selectedVersion);
   if (idx >= 0 && idx + 1 < state.versions.length) {
-    return state.versions[idx + 1].name; // la anterior (más antigua)
+    return state.versions[idx + 1].name;
   }
-  return state.deleted ? null : "current";
+  return null;
 }
 
 function renderVersions() {
@@ -487,7 +488,7 @@ async function renderDiff(viewer) {
   const from = state.compareTo;
   const to = state.selectedVersion;
   if (!from) {
-    viewerMessage(viewer, t("no_previous_version"));
+    setMode("content");
     return;
   }
   const qs = new URLSearchParams({ path: state.selectedPath, from: from, to: to });
@@ -921,44 +922,83 @@ function renderSessionEvents() {
   const events = d.events || [];
   $("events-empty").hidden = events.length > 0;
   list.hidden = events.length === 0;
-  for (const ev of events) {
-    const li = document.createElement("li");
-    li.className = "event-item";
 
-    const time = document.createElement("span");
-    time.className = "ev-time";
-    time.textContent = fmtDate(ev.ts);
-
-    const type = document.createElement("span");
-    type.className = "ev-type " + (ev.first ? "t-new" : "t-mod");
-    type.textContent = ev.first ? t("ev_new") : t("ev_modified");
-
-    const path = document.createElement("span");
-    path.className = "ev-path";
-    path.textContent = ev.path;
-    path.title = ev.path;
-
-    li.appendChild(time);
-    li.appendChild(type);
-    li.appendChild(path);
-
-    const actions = document.createElement("span");
-    actions.className = "ev-actions";
-    const viewBtn = document.createElement("button");
-    viewBtn.type = "button";
-    viewBtn.className = "btn btn-small";
-    viewBtn.textContent = ev.first ? t("ev_view_file") : t("ev_view_diff");
-    viewBtn.addEventListener("click", () => openAgentDiff(ev));
-    actions.appendChild(viewBtn);
-    const revBtn = document.createElement("button");
-    revBtn.type = "button";
-    revBtn.className = "btn btn-small";
-    revBtn.textContent = t("ev_revert_file");
-    revBtn.addEventListener("click", () => openSessionRevert(ev.path));
-    actions.appendChild(revBtn);
-    li.appendChild(actions);
-    list.appendChild(li);
+  const anyPrompt = events.some((ev) => ev.prompt);
+  if (!anyPrompt) {
+    renderFlatEvents(list, events);
+    return;
   }
+  renderGroupedEvents(list, events);
+}
+
+function renderFlatEvents(list, events) {
+  for (const ev of events) {
+    list.appendChild(makeEventItem(ev));
+  }
+}
+
+function renderGroupedEvents(list, events) {
+  const groups = [];
+  for (const ev of events) {
+    const key = ev.prompt || "";
+    let group = groups[groups.length - 1];
+    if (!group || group.prompt !== key) {
+      group = { prompt: key, events: [] };
+      groups.push(group);
+    }
+    group.events.push(ev);
+  }
+
+  for (const group of groups) {
+    if (group.prompt) {
+      const header = document.createElement("li");
+      header.className = "prompt-header";
+      header.textContent = group.prompt;
+      list.appendChild(header);
+    }
+    for (const ev of group.events) {
+      list.appendChild(makeEventItem(ev));
+    }
+  }
+}
+
+function makeEventItem(ev) {
+  const li = document.createElement("li");
+  li.className = "event-item";
+
+  const time = document.createElement("span");
+  time.className = "ev-time";
+  time.textContent = fmtDate(ev.ts);
+
+  const type = document.createElement("span");
+  type.className = "ev-type " + (ev.first ? "t-new" : "t-mod");
+  type.textContent = ev.first ? t("ev_new") : t("ev_modified");
+
+  const path = document.createElement("span");
+  path.className = "ev-path";
+  path.textContent = ev.path;
+  path.title = ev.path;
+
+  li.appendChild(time);
+  li.appendChild(type);
+  li.appendChild(path);
+
+  const actions = document.createElement("span");
+  actions.className = "ev-actions";
+  const viewBtn = document.createElement("button");
+  viewBtn.type = "button";
+  viewBtn.className = "btn btn-small";
+  viewBtn.textContent = ev.first ? t("ev_view_file") : t("ev_view_diff");
+  viewBtn.addEventListener("click", () => openAgentDiff(ev));
+  actions.appendChild(viewBtn);
+  const revBtn = document.createElement("button");
+  revBtn.type = "button";
+  revBtn.className = "btn btn-small";
+  revBtn.textContent = t("ev_revert_file");
+  revBtn.addEventListener("click", () => openSessionRevert(ev.path));
+  actions.appendChild(revBtn);
+  li.appendChild(actions);
+  return li;
 }
 
 // --- visor de cambios de un evento ---

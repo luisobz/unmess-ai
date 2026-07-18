@@ -1,0 +1,125 @@
+/* unmessai UI — modales y overlays */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 14, 12, .45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 50;
+}
+
+.modal {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  width: min(780px, 100%);
+  max-height: min(85vh, 720px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-small {
+  width: min(440px, 100%);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.about-body {
+  padding: 18px 20px 20px;
+  overflow-y: auto;
+}
+
+.about-body p {
+  margin: 0 0 12px;
+}
+
+.about-body a {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.about-version {
+  color: var(--text-muted);
+}
+
+.about-support {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.support-links {
+  display: flex;
+  gap: 10px;
+}
+
+.support-links .btn {
+  flex: 1;
+  justify-content: center;
+}
+
+.safety-note {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  background: var(--bg-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  margin-top: 0;
+}
+
+.about-body .modal-actions {
+  border-top: none;
+  padding: 4px 0 0;
+}
+
+/* --- toasts --- */
+
+.toast-container {
+  position: fixed;
+  bottom: 18px;
+  right: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 100;
+}
+
+.toast {
+  background: var(--primary);
+  color: var(--primary-text);
+  padding: 10px 16px;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  max-width: 380px;
+}
+
+.toast.error {
+  background: var(--danger);
+  color: #fff;
+}

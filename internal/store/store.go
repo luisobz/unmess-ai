@@ -1,5 +1,5 @@
 // Package store implementa el contrato de Store de unmessai:
-// versiones planas en store/<ruta-relativa>/<fichero>/vYYYY-MM-DD-HH-MM[.ext] y
+// versiones planas en store/<ruta-relativa>/<fichero>/vYYYY-MM-DD-HH-MM-SS[.ext] y
 // una línea de journal por escritura. Las rutas se guardan relativas a BaseDir
 // (por defecto la carpeta personal); los ficheros fuera de BaseDir se ignoran.
 package store
@@ -17,8 +17,12 @@ import (
 	"github.com/luisobz/unmess-ai/internal/journal"
 )
 
-// versionLayout es el formato de minuto usado en el nombre de versión.
-const versionLayout = "2006-01-02-15-04"
+// versionLayout es el formato con precisión de segundo usado en los nuevos
+// nombres de versión. legacyVersionLayout se conserva al leer stores creados
+// por versiones anteriores de unmessai.
+const versionLayout = "2006-01-02-15-04-05"
+
+const legacyVersionLayout = "2006-01-02-15-04"
 
 // versionPrefix precede al timestamp en el nombre del fichero de versión.
 const versionPrefix = "v"
@@ -33,7 +37,7 @@ type Store struct {
 // VersionResult describe una versión recién escrita.
 type VersionResult struct {
 	RelPath string // ruta relativa (separadores "/")
-	Name    string // nombre de la versión, p. ej. v2026-07-11-10-30.txt
+	Name    string // nombre de la versión, p. ej. v2026-07-11-10-30-45.txt
 	Path    string // ruta absoluta del fichero de versión en disco
 }
 
@@ -118,8 +122,9 @@ func VersionName(ts time.Time, ext string) string {
 }
 
 // WriteVersion copia el contenido actual de absPath a una nueva versión y añade
-// la línea de journal correspondiente. Dos escrituras en el mismo minuto
-// sobrescriben la misma versión (escritura a temporal + rename atómico).
+// la línea de journal correspondiente. Los segundos evitan que escrituras
+// consecutivas dentro del mismo minuto se pisen (escritura a temporal + rename
+// atómico).
 func (s *Store) WriteVersion(absPath string, ts time.Time) (VersionResult, error) {
 	relPath, err := s.RelPath(absPath)
 	if err != nil {
@@ -290,7 +295,9 @@ func readVersions(dir string) ([]VersionInfo, error) {
 }
 
 // ParseVersionTime extrae el timestamp del nombre de una versión
-// (vYYYY-MM-DD-HH-MM[.ext]). Devuelve ok=false si no encaja.
+// (vYYYY-MM-DD-HH-MM-SS[.ext]). También acepta el formato histórico sin
+// segundos para que las versiones existentes sigan siendo accesibles. Devuelve
+// ok=false si no encaja.
 func ParseVersionTime(name string) (time.Time, bool) {
 	if !strings.HasPrefix(name, versionPrefix) {
 		return time.Time{}, false
@@ -299,11 +306,13 @@ func ParseVersionTime(name string) (time.Time, bool) {
 	if ext := filepath.Ext(name); ext != "" {
 		body = strings.TrimSuffix(body, ext)
 	}
-	ts, err := time.ParseInLocation(versionLayout, body, time.Local)
-	if err != nil {
-		return time.Time{}, false
+	for _, layout := range []string{versionLayout, legacyVersionLayout} {
+		ts, err := time.ParseInLocation(layout, body, time.Local)
+		if err == nil {
+			return ts, true
+		}
 	}
-	return ts, true
+	return time.Time{}, false
 }
 
 func sortVersionsDesc(v []VersionInfo) {
@@ -325,9 +334,10 @@ func lessDesc(a, b VersionInfo) bool {
 // writeSafetyCopy guarda el contenido actual de absPath como versión previa a un
 // restore. A diferencia del versionado normal, nunca debe sobrescribir una
 // versión existente (podría machacar justo la versión que se va a restaurar, o
-// una versión aún no reflejada en disco): si el nombre del minuto actual está
-// ocupado, avanza de minuto en minuto hasta uno libre. Si el contenido en disco
-// ya es idéntico a la versión más reciente, la reutiliza sin escribir nada.
+// una versión aún no reflejada en disco): si el nombre del segundo actual está
+// ocupado, avanza de segundo en segundo hasta uno libre. Si el contenido en
+// disco ya es idéntico a la versión más reciente, la reutiliza sin escribir
+// nada.
 func (s *Store) writeSafetyCopy(absPath, relPath string, ts time.Time) (string, error) {
 	versions, err := s.ListVersions(relPath)
 	if err != nil {
@@ -348,7 +358,7 @@ func (s *Store) writeSafetyCopy(absPath, relPath string, ts time.Time) (string, 
 		if _, serr := os.Lstat(filepath.Join(s.versionDir(relPath), name)); os.IsNotExist(serr) {
 			break
 		}
-		sts = sts.Add(time.Minute)
+		sts = sts.Add(time.Second)
 	}
 	res, err := s.WriteVersion(absPath, sts)
 	if err != nil {

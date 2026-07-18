@@ -1,0 +1,85 @@
+/* unmessai UI — botones */
+
+.btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  font: inherit;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background .12s ease, border-color .12s ease, transform .05s ease;
+}
+
+.btn:hover {
+  background: var(--bg-subtle);
+  border-color: var(--border-strong);
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: var(--primary-text);
+  border-color: var(--primary);
+}
+
+.btn-primary:hover {
+  background: var(--primary);
+  opacity: .88;
+  border-color: var(--primary);
+}
+
+.btn-primary:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.btn-danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+.btn-danger:hover {
+  background: var(--danger);
+  opacity: .88;
+  border-color: var(--danger);
+}
+
+.btn-danger-ghost {
+  color: var(--danger);
+}
+
+.btn-danger-ghost:hover {
+  background: var(--danger-bg);
+  border-color: var(--danger);
+}
+
+.btn-small {
+  padding: 4px 10px;
+  font-size: 12.5px;
+  border-radius: 8px;
+}
+
+.icon-btn {
+  padding: 8px;
+  width: 36px;
+  height: 36px;
+  justify-content: center;
+  border-radius: 50%;
+}

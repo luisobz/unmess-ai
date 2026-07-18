@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -62,6 +63,7 @@ type sessionEvent struct {
 	Version string `json:"version"`
 	Prev    string `json:"prev,omitempty"` // versión anterior del fichero ("" = primera conocida)
 	First   bool   `json:"first"`          // primera versión conocida del fichero (creación probable)
+	Prompt  string `json:"prompt,omitempty"` // texto del prompt del usuario al que pertenece esta versión
 }
 
 // sessionFile resume un fichero del usuario afectado por la sesión.
@@ -200,12 +202,19 @@ func readHead(path string, limit int64) ([]byte, error) {
 // usuario escrita dentro de la ventana (evento) y el resumen por fichero. El
 // estado interno de los agentes (transcripts, configs, cachés) queda fuera:
 // solo sirve para derivar sesiones y ventanas, al usuario le interesan sus
-// propios ficheros.
+// propios ficheros. También filtra ficheros de sistema (p. ej. .npm, .local,
+// snap) ajenos al proyecto, usando el prefijo de ruta dominante entre los
+// ficheros del workspace.
 func (s *Server) sessionTrace(span sessionSpan, files []store.FileInfo) ([]sessionEvent, []sessionFile) {
+	prefix := workspacePrefix(files, span.start, span.end)
+
 	var events []sessionEvent
 	var sfiles []sessionFile
 	for _, f := range files {
 		if _, ok := agents.Detect(f.RelPath); ok {
+			continue
+		}
+		if prefix != "" && !strings.HasPrefix(f.RelPath, prefix) {
 			continue
 		}
 
@@ -264,6 +273,157 @@ func (s *Server) sessionTrace(span sessionSpan, files []store.FileInfo) ([]sessi
 	return events, sfiles
 }
 
+// workspacePrefix encuentra el prefijo de ruta dominante entre los ficheros
+// del usuario afectados por la ventana. Agrupa por el primer componente de ruta
+// y devuelve el que más ficheros cubre, siempre que supere la mayoría absoluta.
+// Así los ficheros de sistema sueltos (.npm, .local, snap) quedan filtrados
+// mientras que los del proyecto se conservan. Vacío = sin filtro.
+func workspacePrefix(files []store.FileInfo, start, end time.Time) string {
+	var paths []string
+	for _, f := range files {
+		if _, ok := agents.Detect(f.RelPath); ok {
+			continue
+		}
+		for _, v := range f.Versions {
+			if !v.TS.Before(start) && !v.TS.After(end) {
+				paths = append(paths, f.RelPath)
+				break
+			}
+		}
+	}
+	if len(paths) < 2 {
+		return ""
+	}
+	counts := make(map[string]int)
+	for _, p := range paths {
+		counts[strings.SplitN(p, "/", 2)[0]]++
+	}
+	var best string
+	bestCount := 0
+	for prefix, count := range counts {
+		if count > bestCount {
+			bestCount = count
+			best = prefix
+		}
+	}
+	if bestCount > len(paths)/2 {
+		return best + "/"
+	}
+	return ""
+}
+
+// promptEntry es un prompt de usuario extraído del transcript con su timestamp.
+type promptEntry struct {
+	ts   time.Time
+	text string
+}
+
+// assignPrompts asigna a cada evento el texto del prompt del usuario que lo
+// precede inmediatamente según el timestamp del prompt. Lee el transcript de la
+// sesión (del disco, o del store si fue borrado) y extrae las entradas del
+// usuario (role=user). Los eventos quedan ordenados como estaban pero cada uno
+// lleva el texto del prompt que lo causó en el campo Prompt.
+func assignPrompts(span sessionSpan, events []sessionEvent, srv *Server) {
+	transcript := span.info.Transcript
+	if transcript == "" {
+		return
+	}
+	prompts, err := extractPrompts(transcript, srv)
+	if err != nil || len(prompts) == 0 {
+		return
+	}
+	for i := range events {
+		ts, err := time.Parse(time.RFC3339, events[i].TS)
+		if err != nil {
+			continue
+		}
+		var best promptEntry
+		for _, p := range prompts {
+			if !p.ts.After(ts) && (best.text == "" || p.ts.After(best.ts)) {
+				best = p
+			}
+		}
+		if best.text != "" {
+			events[i].Prompt = clipPromptText(best.text)
+		}
+	}
+}
+
+// extractPrompts lee el transcript y extrae las entradas de usuario con sus
+// timestamps. Soporta los formatos de CommandCode/Claude (type=user) y Codex
+// (payload.role=user).
+func extractPrompts(transcript string, srv *Server) ([]promptEntry, error) {
+	abs := srv.store.OriginalPath(transcript)
+	raw, err := readHead(abs, transcriptHeadLimit)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return nil, err
+		}
+		vers, verr := srv.store.ListVersions(transcript)
+		if verr != nil || len(vers) == 0 {
+			return nil, fmt.Errorf("transcript no encontrado")
+		}
+		raw, err = srv.store.VersionContent(transcript, vers[0].Name)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return parsePrompts(raw), nil
+}
+
+// parsePrompts escanea el transcript JSONL en busca de mensajes del usuario.
+func parsePrompts(data []byte) []promptEntry {
+	var entries []promptEntry
+	sc := bufio.NewScanner(bytes.NewReader(data))
+	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	for i := 0; i < 500 && sc.Scan(); i++ {
+		line := bytes.TrimSpace(sc.Bytes())
+		if len(line) == 0 || line[0] != '{' {
+			continue
+		}
+		var obj map[string]any
+		if json.Unmarshal(line, &obj) != nil {
+			continue
+		}
+		var ts time.Time
+		var text string
+		if obj["type"] == "user" {
+			if s := agents.UserText(obj["message"]); s != "" {
+				text = s
+			}
+		}
+		if payload, _ := obj["payload"].(map[string]any); payload != nil && payload["role"] == "user" {
+			if s := agents.UserText(payload); s != "" {
+				text = s
+			}
+		}
+		if text == "" {
+			continue
+		}
+		if t, _ := obj["timestamp"].(string); t != "" {
+			ts, _ = time.Parse(time.RFC3339, t)
+		}
+		if ts.IsZero() {
+			if t, _ := obj["ts"].(string); t != "" {
+				ts, _ = time.Parse(time.RFC3339, t)
+			}
+		}
+		entries = append(entries, promptEntry{ts: ts, text: text})
+	}
+	return entries
+}
+
+// clipPromptText colapsa y recorta el texto de un prompt a una línea.
+func clipPromptText(s string) string {
+	s = strings.Join(strings.Fields(s), " ")
+	const max = 120
+	r := []rune(s)
+	if len(r) <= max {
+		return s
+	}
+	return strings.TrimSpace(string(r[:max])) + "…"
+}
+
 // handleAgentSessions lista las sesiones detectadas de un agente.
 // GET /api/agent/sessions?agent=<id>
 func (s *Server) handleAgentSessions(w http.ResponseWriter, r *http.Request) {
@@ -308,6 +468,7 @@ func (s *Server) handleAgentSession(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		events, sfiles := s.sessionTrace(sp, files)
+		assignPrompts(sp, events, s)
 		writeJSON(w, http.StatusOK, map[string]any{
 			"session": sp.info,
 			"events":  events,
@@ -396,10 +557,15 @@ func (s *Server) handleAgentRevert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	prefix := workspacePrefix(files, start, end)
+
 	resp := revertResponse{DryRun: req.DryRun, Items: []revertItem{}}
 	for _, f := range files {
 		if _, ok := agents.Detect(f.RelPath); ok {
 			continue // estado interno de agentes: fuera del revert
+		}
+		if prefix != "" && !strings.HasPrefix(f.RelPath, prefix) {
+			continue
 		}
 		if target != "" && f.RelPath != target && !strings.HasPrefix(f.RelPath, target+"/") {
 			continue

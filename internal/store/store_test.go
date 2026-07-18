@@ -13,7 +13,10 @@ import (
 // fixedTS construye un instante local determinista.
 func fixedTS(t *testing.T, s string) time.Time {
 	t.Helper()
-	ts, err := time.ParseInLocation("2006-01-02-15-04", s, time.Local)
+	if len(s) == len("2006-01-02-15-04") {
+		s += "-00"
+	}
+	ts, err := time.ParseInLocation("2006-01-02-15-04-05", s, time.Local)
 	if err != nil {
 		t.Fatalf("parseando ts %q: %v", s, err)
 	}
@@ -52,10 +55,10 @@ func TestWriteVersionLayoutWithExtension(t *testing.T) {
 	if res.RelPath != "sub/informe.txt" {
 		t.Errorf("RelPath = %q, quiero sub/informe.txt", res.RelPath)
 	}
-	if res.Name != "v2026-07-11-10-30.txt" {
-		t.Errorf("Name = %q, quiero v2026-07-11-10-30.txt", res.Name)
+	if res.Name != "v2026-07-11-10-30-00.txt" {
+		t.Errorf("Name = %q, quiero v2026-07-11-10-30-00.txt", res.Name)
 	}
-	want := filepath.Join(s.StoreDir(), "sub", "informe.txt", "v2026-07-11-10-30.txt")
+	want := filepath.Join(s.StoreDir(), "sub", "informe.txt", "v2026-07-11-10-30-00.txt")
 	if res.Path != want {
 		t.Errorf("Path = %q, quiero %q", res.Path, want)
 	}
@@ -78,12 +81,28 @@ func TestWriteVersionNoExtension(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Name != "v2026-07-11-10-30" {
-		t.Errorf("Name = %q, quiero v2026-07-11-10-30 (sin extensión)", res.Name)
+	if res.Name != "v2026-07-11-10-30-00" {
+		t.Errorf("Name = %q, quiero v2026-07-11-10-30-00 (sin extensión)", res.Name)
 	}
 }
 
-func TestWriteVersionSameMinuteOverwrites(t *testing.T) {
+func TestParseVersionTimeSupportsSecondAndLegacyMinuteFormats(t *testing.T) {
+	for _, name := range []string{
+		"v2026-07-11-10-30-45.txt",
+		"v2026-07-11-10-30.txt", // store creado antes de añadir segundos
+	} {
+		ts, ok := ParseVersionTime(name)
+		if !ok {
+			t.Errorf("ParseVersionTime(%q) no reconoció una versión válida", name)
+			continue
+		}
+		if ts.Year() != 2026 || ts.Minute() != 30 {
+			t.Errorf("ParseVersionTime(%q) = %v", name, ts)
+		}
+	}
+}
+
+func TestWriteVersionSameMinuteKeepsBothVersions(t *testing.T) {
 	s, base := newStore(t)
 	orig := filepath.Join(base, "a.txt")
 	ts := fixedTS(t, "2026-07-11-10-30")
@@ -93,7 +112,7 @@ func TestWriteVersionSameMinuteOverwrites(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, orig, "v2-más-largo")
-	if _, err := s.WriteVersion(orig, ts); err != nil {
+	if _, err := s.WriteVersion(orig, ts.Add(time.Second)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -101,8 +120,8 @@ func TestWriteVersionSameMinuteOverwrites(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(versions) != 1 {
-		t.Fatalf("versiones = %d, quiero 1 (mismo minuto sobrescribe)", len(versions))
+	if len(versions) != 2 {
+		t.Fatalf("versiones = %d, quiero 2 (segundos distintos en el mismo minuto)", len(versions))
 	}
 	got, err := s.VersionContent("a.txt", versions[0].Name)
 	if err != nil {
@@ -176,7 +195,7 @@ func TestListVersionsDescending(t *testing.T) {
 			t.Errorf("orden no descendente en %d: %v antes de %v", i, versions[i-1].TS, versions[i].TS)
 		}
 	}
-	if versions[0].Name != "v2026-07-11-10-32.txt" {
+	if versions[0].Name != "v2026-07-11-10-32-00.txt" {
 		t.Errorf("primera = %q, quiero la más reciente", versions[0].Name)
 	}
 }
@@ -286,11 +305,11 @@ func TestRestoreSafetyNeverOverwritesExistingVersionOnMinuteCollision(t *testing
 		t.Fatal(err)
 	}
 	// La safety NO puede ser el nombre de la versión existente del minuto 11-00.
-	if safety == "v2026-07-11-11-00.txt" {
+	if safety == "v2026-07-11-11-00-00.txt" {
 		t.Fatal("la copia de seguridad sobrescribió una versión existente")
 	}
 	// La versión 11-00 conserva su contenido.
-	v1100, err := s.VersionContent("a.txt", "v2026-07-11-11-00.txt")
+	v1100, err := s.VersionContent("a.txt", "v2026-07-11-11-00-00.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -325,7 +344,7 @@ func TestRestoreSafetyReusesIdenticalLatest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	safety, err := s.Restore("a.txt", "v2026-07-11-10-30.txt", fixedTS(t, "2026-07-11-11-00"))
+	safety, err := s.Restore("a.txt", "v2026-07-11-10-30-00.txt", fixedTS(t, "2026-07-11-11-00"))
 	if err != nil {
 		t.Fatal(err)
 	}

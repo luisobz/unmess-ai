@@ -440,7 +440,7 @@ func TestUIServed(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), "unmessai") {
 		t.Fatalf("index.html no servido correctamente")
 	}
-	rec = do(t, srv, "GET", "/app.js", reqOpts{})
+	rec = do(t, srv, "GET", "/scripts/app.js", reqOpts{})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("app.js: %d", rec.Code)
 	}

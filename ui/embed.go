@@ -9,5 +9,5 @@ import "embed"
 
 // Assets contiene los ficheros estáticos de la UI.
 //
-//go:embed index.html app.js i18n.js styles.css icon.svg
+//go:embed index.html scripts/* styles/* assets/*
 var Assets embed.FS

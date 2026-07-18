@@ -1,0 +1,24 @@
+/* unmessai UI — responsive */
+
+@media (max-width: 900px) {
+  .store-stats,
+  #prot-label {
+    display: none;
+  }
+
+  .sidebar {
+    width: 260px;
+  }
+
+  .versions-col {
+    width: 220px;
+  }
+
+  .top-actions .btn span {
+    display: none;
+  }
+
+  .top-actions .btn {
+    padding: 8px;
+  }
+}

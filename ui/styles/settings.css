@@ -1,0 +1,116 @@
+/* unmessai UI — panel de ajustes */
+
+.modal-settings {
+  width: min(820px, 100%);
+  height: min(85vh, 640px);
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.settings-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.settings-nav {
+  width: 200px;
+  flex: none;
+  padding: 14px 10px;
+  border-right: 1px solid var(--border);
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow-y: auto;
+}
+
+.settings-tab {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: inherit;
+  font-weight: 500;
+  text-align: left;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.settings-tab svg {
+  width: 15px;
+  height: 15px;
+  color: var(--text-muted);
+  flex: none;
+}
+
+.settings-tab:hover {
+  background: var(--bg-subtle);
+}
+
+.settings-tab.active {
+  background: var(--bg-subtle);
+  font-weight: 600;
+}
+
+.settings-tab.active svg {
+  color: var(--text);
+}
+
+.settings-panels {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 18px 22px;
+}
+
+.field {
+  margin-bottom: 18px;
+}
+
+.field label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.field .hint {
+  margin: 0 0 7px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.field textarea {
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+}
+
+.field input[type="number"] {
+  max-width: 160px;
+}
+
+.field-inline .checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.field-inline .checkbox input {
+  width: auto;
+}
+
+.field-inline .hint {
+  margin-top: 4px;
+}

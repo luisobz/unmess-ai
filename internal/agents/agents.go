@@ -244,6 +244,12 @@ func TitleFromTranscript(data []byte) string {
 // userText extrae el texto de un message estilo Claude Code:
 // {"role":"user","content": "str" | [{"type":"text","text":"..."}]}.
 func userText(message any) string {
+	return UserText(message)
+}
+
+// UserText extrae el texto legible del usuario de un objeto de mensaje de
+// agente que tenga los campos role/content.
+func UserText(message any) string {
 	m, _ := message.(map[string]any)
 	if m == nil {
 		return ""
