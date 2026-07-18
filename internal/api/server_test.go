@@ -189,6 +189,63 @@ func TestFilesAndVersions(t *testing.T) {
 	}
 }
 
+func TestAgentClassification(t *testing.T) {
+	srv, st, _ := newTestServer(t)
+	base := time.Date(2026, 7, 11, 10, 0, 0, 0, time.Local)
+	writeVersion(t, st, srv.store.BaseDir(), ".claude/projects/x/sess.jsonl", "{}\n", base)
+	writeVersion(t, st, srv.store.BaseDir(), ".claude.json", "{}\n", base.Add(time.Minute))
+	writeVersion(t, st, srv.store.BaseDir(), ".gemini/history", "x\n", base.Add(2*time.Minute))
+	writeVersion(t, st, srv.store.BaseDir(), "Documentos/nota.md", "hola\n", base.Add(3*time.Minute))
+
+	// /api/files: cada fichero lleva su agente (o vacío).
+	rec := do(t, srv, "GET", "/api/files", reqOpts{token: srv.Token()})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("files: %d", rec.Code)
+	}
+	var files []fileEntry
+	if err := json.Unmarshal(rec.Body.Bytes(), &files); err != nil {
+		t.Fatalf("decodificar files: %v", err)
+	}
+	got := map[string]string{}
+	for _, f := range files {
+		got[f.Path] = f.Agent
+	}
+	want := map[string]string{
+		".claude/projects/x/sess.jsonl": "claude",
+		".claude.json":                  "claude",
+		".gemini/history":               "gemini",
+		"Documentos/nota.md":            "",
+	}
+	for path, wantAgent := range want {
+		if got[path] != wantAgent {
+			t.Errorf("agente de %q = %q; quería %q", path, got[path], wantAgent)
+		}
+	}
+
+	// /api/agents: registro con conteos por agente.
+	rec = do(t, srv, "GET", "/api/agents", reqOpts{token: srv.Token()})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("agents: %d", rec.Code)
+	}
+	var ag []agentEntry
+	if err := json.Unmarshal(rec.Body.Bytes(), &ag); err != nil {
+		t.Fatalf("decodificar agents: %v", err)
+	}
+	counts := map[string]int{}
+	for _, a := range ag {
+		counts[a.ID] = a.Files
+	}
+	if counts["claude"] != 2 {
+		t.Errorf("claude Files = %d; quería 2", counts["claude"])
+	}
+	if counts["gemini"] != 1 {
+		t.Errorf("gemini Files = %d; quería 1", counts["gemini"])
+	}
+	if counts["cursor"] != 0 {
+		t.Errorf("cursor Files = %d; quería 0", counts["cursor"])
+	}
+}
+
 func TestContentAndDiff(t *testing.T) {
 	srv, st, _ := newTestServer(t)
 	base := time.Date(2026, 7, 11, 10, 0, 0, 0, time.Local)

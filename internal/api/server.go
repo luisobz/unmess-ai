@@ -127,6 +127,10 @@ func (s *Server) routes() http.Handler {
 	// API JSON.
 	mux.HandleFunc("/api/token", s.handleToken)
 	mux.HandleFunc("/api/status", s.protected(s.handleStatus))
+	mux.HandleFunc("/api/agents", s.protected(s.handleAgents))
+	mux.HandleFunc("/api/agent/sessions", s.protected(s.handleAgentSessions))
+	mux.HandleFunc("/api/agent/session", s.protected(s.handleAgentSession))
+	mux.HandleFunc("/api/agent/revert", s.protected(s.handleAgentRevert))
 	mux.HandleFunc("/api/pause", s.protected(s.handlePause))
 	mux.HandleFunc("/api/events", s.protected(s.handleEvents))
 	mux.HandleFunc("/api/files", s.protected(s.handleFiles))

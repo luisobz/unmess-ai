@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/luisobz/unmess-ai/internal/agents"
 	"github.com/luisobz/unmess-ai/internal/config"
 	"github.com/luisobz/unmess-ai/internal/daemon"
 	"github.com/luisobz/unmess-ai/internal/ignore"
@@ -185,12 +186,16 @@ func writeSSE(w http.ResponseWriter, event string, data []byte) (int, error) {
 	return w.Write([]byte("event: " + event + "\ndata: " + string(data) + "\n\n"))
 }
 
-// fileEntry describe un fichero versionado en GET /api/files.
+// fileEntry describe un fichero versionado en GET /api/files. Agent es el ID del
+// agente de IA al que pertenece la ruta (vacío si no es de ningún agente
+// conocido); permite a la UI filtrar por IA y agrupar por agente sin duplicar
+// los patrones de detección en el cliente.
 type fileEntry struct {
 	Path          string `json:"path"`
 	Versions      int    `json:"versions"`
 	LastVersionAt string `json:"last_version_at"`
 	Deleted       bool   `json:"deleted"`
+	Agent         string `json:"agent,omitempty"`
 }
 
 func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
@@ -228,11 +233,13 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 		if len(f.Versions) > 0 {
 			last = f.Versions[0].TS.Format(time.RFC3339)
 		}
+		agentID, _ := agents.Detect(f.RelPath)
 		out = append(out, fileEntry{
 			Path:          f.RelPath,
 			Versions:      len(f.Versions),
 			LastVersionAt: last,
 			Deleted:       deleted,
+			Agent:         agentID,
 		})
 	}
 	// Orden estable: más recientes arriba (por última versión desc).
@@ -242,6 +249,37 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 		}
 		return strings.Compare(b.LastVersionAt, a.LastVersionAt)
 	})
+	writeJSON(w, http.StatusOK, out)
+}
+
+// agentEntry describe un agente conocido en GET /api/agents, con cuántos
+// ficheros versionados se le atribuyen actualmente.
+type agentEntry struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Icon  string `json:"icon"`
+	Files int    `json:"files"`
+}
+
+// handleAgents devuelve el registro de agentes de IA conocidos junto al número
+// de ficheros versionados atribuidos a cada uno. La UI lo usa para pintar el
+// modo Agente y las etiquetas de la lista.
+func (s *Server) handleAgents(w http.ResponseWriter, r *http.Request) {
+	files, err := s.store.ListFiles()
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	rels := make([]string, 0, len(files))
+	for _, f := range files {
+		rels = append(rels, f.RelPath)
+	}
+	counts := agents.CountByID(rels)
+	reg := agents.Registry()
+	out := make([]agentEntry, 0, len(reg))
+	for _, a := range reg {
+		out = append(out, agentEntry{ID: a.ID, Name: a.Name, Icon: a.Icon, Files: counts[a.ID]})
+	}
 	writeJSON(w, http.StatusOK, out)
 }
 

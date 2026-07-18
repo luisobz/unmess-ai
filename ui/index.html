@@ -25,6 +25,19 @@
     <svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4l14 8-14 8z"/></svg>
     <span id="prot-label">Protección activa</span>
   </button>
+  <div class="mode-switch">
+    <span class="mode-switch-label" data-i18n="mode_label">Modo actual</span>
+    <div class="mode-pill" role="tablist" aria-label="Modo de la interfaz">
+      <button type="button" id="view-files" class="mode-seg active" role="tab" aria-selected="true">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 7v5l3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span data-i18n="mode_files">Versionado</span>
+      </button>
+      <button type="button" id="view-agents" class="mode-seg" role="tab" aria-selected="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.7 4.6L18.3 8l-4.6 1.7L12 14l-1.7-4.3L5.7 8l4.6-1.4L12 2z" fill="currentColor"/><path d="M18 13.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9.9-2.1z" fill="currentColor"/></svg>
+        <span data-i18n="mode_agents">Agente</span>
+      </button>
+    </div>
+  </div>
   <nav class="top-actions" aria-label="Acciones">
     <button type="button" id="btn-activity" class="btn" aria-haspopup="dialog">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -44,13 +57,12 @@
   </nav>
 </header>
 
-<div class="layout">
+<div class="layout" id="files-layout">
   <aside class="sidebar" aria-label="Ficheros">
     <div class="sidebar-controls">
       <div class="action-row">
-        <button type="button" id="btn-flush" class="btn btn-flush">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4.5 13.5h5L10 22l8.5-11.5h-5L13 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-          <span data-i18n="flush_now">Versionar ahora</span>
+        <button type="button" id="btn-flush" class="btn btn-flush" title="Actualizar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 4v6h6M23 20v-6h-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <button type="button" id="btn-protect-existing" class="btn" aria-haspopup="dialog">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -58,9 +70,14 @@
         </button>
       </div>
       <label class="visually-hidden" for="search" data-i18n="search_files_label">Buscar ficheros</label>
-      <div class="search-wrap">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <input type="search" id="search" data-i18n-placeholder="search_files" placeholder="Buscar ficheros…" autocomplete="off" />
+      <div class="search-row">
+        <div class="search-wrap">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <input type="search" id="search" data-i18n-placeholder="search_files" placeholder="Buscar ficheros…" autocomplete="off" />
+        </div>
+        <button type="button" id="btn-ai-filter" class="ai-toggle" aria-label="Filtro de IA" title="Filtro de IA">
+          <svg class="ai-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.7 4.6L18.3 8l-4.6 1.7L12 14l-1.7-4.3L5.7 8l4.6-1.4L12 2z" fill="currentColor"/><path d="M18 13.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9.9-2.1z" fill="currentColor"/></svg>
+        </button>
       </div>
       <div class="filters" role="tablist" aria-label="Filtro">
         <button type="button" class="filter active" data-filter="all" role="tab" aria-selected="true" data-i18n="filter_all">Todos</button>
@@ -129,6 +146,110 @@
       </div>
     </section>
   </main>
+</div>
+
+<!-- Modo Agente: agentes → sesiones → traza -->
+<div class="layout" id="agents-layout" hidden>
+  <aside class="agents-col" aria-label="Agentes">
+    <div class="side-heading-row">
+      <p class="side-heading" data-i18n="agents_heading">Agentes</p>
+      <button type="button" id="btn-agents-refresh" class="btn icon-btn refresh-sm" data-i18n-title="refresh" data-i18n-aria-label="refresh" aria-label="Refrescar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 4v6h6M23 20v-6h-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <ul class="agent-list" id="agent-list"></ul>
+    <div class="empty-state" id="agents-empty" hidden>
+      <p><strong data-i18n="no_agents_title">Sin actividad de agentes.</strong></p>
+      <p data-i18n="no_agents_body">Cuando un agente de IA (Claude Code, Gemini, Codex…) trabaje en tu equipo, sus sesiones aparecerán aquí automáticamente.</p>
+    </div>
+    <div class="agents-tip">
+      <p data-i18n="agents_tip">Detectamos automáticamente los ficheros de historial que generan tus agentes.</p>
+    </div>
+  </aside>
+
+  <aside class="sessions-col" aria-label="Sesiones">
+    <div class="sessions-head">
+      <div class="sessions-agent">
+        <span class="agent-ic" id="sessions-agent-icon" aria-hidden="true"></span>
+        <h2 id="sessions-agent-name">—</h2>
+      </div>
+      <p class="sessions-count" id="sessions-count"></p>
+    </div>
+    <ul class="session-list" id="session-list"></ul>
+    <div class="empty-state" id="sessions-empty" hidden>
+      <p><strong data-i18n="no_sessions_title">Sin sesiones detectadas.</strong></p>
+      <p data-i18n="no_sessions_body">Este agente aún no tiene historial versionado. Asegúrate de que su carpeta está dentro de las rutas vigiladas.</p>
+    </div>
+  </aside>
+
+  <main class="session-main" id="session-main" tabindex="-1">
+    <div class="panel-empty" id="session-empty">
+      <p class="panel-empty-title" data-i18n="session_select_title">Selecciona una sesión</p>
+      <p data-i18n="session_select_body">Elige una sesión para revisar el trabajo del agente, seguir su traza de cambios y revertir lo que necesites.</p>
+    </div>
+
+    <section class="session-view" id="session-view" hidden>
+      <div class="session-head">
+        <div class="session-head-main">
+          <h2 id="session-title" class="session-title"></h2>
+          <p class="session-meta" id="session-meta"></p>
+        </div>
+        <div class="session-head-actions">
+          <button type="button" class="btn" id="btn-transcript" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span data-i18n="session_transcript">Exportar sesión</span>
+          </button>
+          <button type="button" class="btn btn-primary" id="btn-session-revert">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span data-i18n="session_revert">Restaurar sesión</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="session-stats" id="session-stats"></div>
+      <p class="session-scope-note" data-i18n="session_scope_note">La traza cubre los ficheros que unmessai versiona (se respetan exclusiones y .gitignore). La correlación temporal es aproximada al minuto.</p>
+
+      <div class="session-body">
+        <p class="side-heading" data-i18n="session_chronology">Cronología de cambios</p>
+        <ul class="event-list" id="session-events"></ul>
+        <p class="empty-state" id="events-empty" hidden data-i18n="session_no_changes">El agente no cambió ningún fichero versionado en esta ventana. Si trabajó dentro de un repositorio git, esos cambios los cubre git, no esta traza.</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Modal de reversión de sesión (plan → confirmación → resultado) -->
+<div class="overlay" id="revert-overlay" hidden>
+  <div class="modal modal-revert" role="dialog" aria-modal="true" aria-labelledby="revert-title" id="revert-dialog">
+    <div class="modal-head">
+      <h2 id="revert-title" data-i18n="revert_title">Restaurar cambios de la sesión</h2>
+      <button type="button" class="btn icon-btn" data-close="revert" data-i18n-aria-label="close" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="about-body">
+      <p class="revert-scope" id="revert-scope"></p>
+      <div class="revert-plan" id="revert-plan"></div>
+      <p class="safety-note" data-i18n="revert_safety">Antes de tocar cada fichero se guarda una copia de seguridad de su estado actual, así que podrás deshacer la operación completa. Los ficheros creados por el agente nunca se borran.</p>
+      <div class="modal-actions">
+        <button type="button" class="btn" data-close="revert" data-i18n="cancel">Cancelar</button>
+        <button type="button" class="btn" id="revert-undo" hidden data-i18n="revert_undo">Deshacer reversión</button>
+        <button type="button" class="btn btn-primary" id="revert-confirm" data-i18n="revert_confirm">Restaurar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Visor de cambios de un evento del modo Agente -->
+<div class="overlay" id="agentdiff-overlay" hidden>
+  <div class="drawer drawer-wide" role="dialog" aria-modal="true" aria-labelledby="agentdiff-title" id="agentdiff-dialog">
+    <div class="drawer-head">
+      <h2 id="agentdiff-title" class="agentdiff-title"></h2>
+      <div class="drawer-head-actions">
+        <button type="button" class="btn btn-small" id="agentdiff-history" data-i18n="ev_open_history">Ver historial</button>
+        <button type="button" class="btn icon-btn" data-close="agentdiff" data-i18n-aria-label="close" aria-label="Cerrar">✕</button>
+      </div>
+    </div>
+    <div class="viewer agentdiff-viewer" id="agentdiff-viewer" aria-live="polite"></div>
+  </div>
 </div>
 
 <!-- Panel Actividad -->

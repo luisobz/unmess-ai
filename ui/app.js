@@ -4,6 +4,15 @@
 const state = {
   token: null,
   filter: "all",
+  // aiFilter tri-estado: "all" (todos) | "only" (solo IA) | "hide" (sin IA).
+  aiFilter: localStorage.getItem("unmessai-ai-filter") || "all",
+  agentsById: {}, // id -> {name, icon} para pintar chips de agente
+  view: "files",  // "files" (versionado clásico) | "agents" (modo Agente)
+  agents: [],     // registro completo de /api/agents (con conteo de ficheros)
+  sessionCounts: {}, // id de agente -> nº de sesiones (carga perezosa)
+  selAgent: null,
+  sessions: [],
+  sessionDetail: null, // {session, events, files} de la sesión abierta
   query: "",
   files: [],
   selectedPath: null,
@@ -177,11 +186,15 @@ async function togglePause() {
 // flushNow fuerza el versionado inmediato de los cambios pendientes del
 // debounce ("Versionar ahora"), sin esperar a que venza el reposo.
 async function flushNow() {
+  const btn = $("btn-flush");
+  btn.classList.add("spinning");
   try {
     const j = await apiJSON("/api/flush", { method: "POST" });
     toast(j.flushed > 0 ? t("flush_done", { n: j.flushed }) : t("flush_none"));
   } catch (e) {
     toast(t("flush_error", { msg: e.message }), "error");
+  } finally {
+    btn.classList.remove("spinning");
   }
 }
 
@@ -203,17 +216,66 @@ async function refreshFiles(preserveSelection = true) {
   }
 }
 
+// --- filtro de IA (tri-estado) ---
+
+const AI_FILTER_CYCLE = { all: "only", only: "hide", hide: "all" };
+
+// loadAgents trae el registro de agentes: chips de la lista de ficheros y
+// columna de agentes del modo Agente.
+async function loadAgents() {
+  try {
+    const list = await apiJSON("/api/agents");
+    const map = {};
+    for (const a of list) map[a.id] = { name: a.name, icon: a.icon };
+    state.agentsById = map;
+    state.agents = list;
+  } catch (_) {
+    // sin registro: los chips de agente simplemente no se pintan
+  }
+}
+
+// visibleFiles aplica el filtro de IA sobre la lista completa ya cargada. El
+// filtrado es en cliente: el servidor ya clasificó cada fichero (campo agent).
+function visibleFiles() {
+  if (state.aiFilter === "only") return state.files.filter((f) => f.agent);
+  if (state.aiFilter === "hide") return state.files.filter((f) => !f.agent);
+  return state.files;
+}
+
+function applyAiToggleUI() {
+  const btn = $("btn-ai-filter");
+  if (!btn) return;
+  btn.classList.toggle("state-only", state.aiFilter === "only");
+  btn.classList.toggle("state-hide", state.aiFilter === "hide");
+  const key = state.aiFilter === "only" ? "ai_filter_only"
+    : state.aiFilter === "hide" ? "ai_filter_hide"
+      : "ai_filter_all";
+  const label = t(key);
+  btn.title = label;
+  btn.setAttribute("aria-label", label);
+  btn.setAttribute("aria-pressed", state.aiFilter === "all" ? "false" : "true");
+}
+
+function cycleAiFilter() {
+  state.aiFilter = AI_FILTER_CYCLE[state.aiFilter] || "all";
+  localStorage.setItem("unmessai-ai-filter", state.aiFilter);
+  applyAiToggleUI();
+  renderFiles();
+  if (state.selectedPath) highlightSelectedFile();
+}
+
 function renderFiles() {
   const list = $("file-list");
   list.innerHTML = "";
-  if (state.files.length === 0) {
+  const files = visibleFiles();
+  if (files.length === 0) {
     list.hidden = true;
     $("files-empty").hidden = false;
     return;
   }
   list.hidden = false;
   $("files-empty").hidden = true;
-  for (const f of state.files) {
+  for (const f of files) {
     const li = document.createElement("li");
     li.className = "file-item";
     li.dataset.path = f.path;
@@ -233,6 +295,17 @@ function renderFiles() {
     date.textContent = fmtDate(f.last_version_at);
     meta.appendChild(vers);
     meta.appendChild(date);
+    if (f.agent) {
+      const ag = state.agentsById[f.agent];
+      const chip = document.createElement("span");
+      chip.className = "fi-agent";
+      const ic = document.createElement("span");
+      ic.className = "fi-agent-icon";
+      ic.textContent = ag ? ag.icon : "✳";
+      chip.appendChild(ic);
+      chip.appendChild(document.createTextNode(ag ? ag.name : f.agent));
+      meta.appendChild(chip);
+    }
     if (f.deleted) {
       const b = document.createElement("span");
       b.className = "badge badge-deleted";
@@ -597,6 +670,508 @@ async function refreshJournal() {
   }
 }
 
+// --- modo Agente ---
+
+// switchView alterna entre el modo Versionado clásico y el modo Agente.
+function switchView(v, updateHash = true) {
+  state.view = v;
+  $("files-layout").hidden = v !== "files";
+  $("agents-layout").hidden = v !== "agents";
+  $("view-files").classList.toggle("active", v === "files");
+  $("view-files").setAttribute("aria-selected", v === "files" ? "true" : "false");
+  $("view-agents").classList.toggle("active", v === "agents");
+  $("view-agents").setAttribute("aria-selected", v === "agents" ? "true" : "false");
+  if (updateHash) {
+    if (v === "agents") {
+      location.hash = "#/agents";
+    } else if (location.hash.startsWith("#/agents")) {
+      history.replaceState(null, "", location.pathname +
+        (state.selectedPath ? "#/file/" + encodeURI(state.selectedPath) : ""));
+    }
+  }
+  if (v === "agents") initAgentsView();
+}
+
+// initAgentsView pinta la columna de agentes y autoselecciona el primero activo.
+async function initAgentsView() {
+  await loadAgents();
+  renderAgentList();
+  const active = state.agents.filter((a) => a.files > 0);
+  if (!state.selAgent && active.length > 0) {
+    selectAgent(active[0].id);
+  }
+}
+
+// refreshAgentsView recarga todo el modo Agente: registro, contadores de
+// sesiones, la lista del agente abierto y el detalle de la sesión abierta.
+async function refreshAgentsView() {
+  const btn = $("btn-agents-refresh");
+  btn.classList.add("spinning");
+  try {
+    state.sessionCounts = {};
+    await loadAgents();
+    renderAgentList();
+    if (state.selAgent) {
+      await loadSessions(state.selAgent, true);
+      if (state.sessionDetail) {
+        await selectSession(state.sessionDetail.session.id);
+      }
+    }
+  } finally {
+    btn.classList.remove("spinning");
+  }
+}
+
+// sessionCountsInFlight evita pedir dos veces las sesiones del mismo agente
+// mientras se rellenan los contadores de la columna.
+const sessionCountsInFlight = new Set();
+
+function renderAgentList() {
+  const list = $("agent-list");
+  list.innerHTML = "";
+  const active = state.agents.filter((a) => a.files > 0);
+  $("agents-empty").hidden = active.length > 0;
+  list.hidden = active.length === 0;
+  for (const a of active) {
+    const li = document.createElement("li");
+    li.className = "agent-item";
+    if (a.id === state.selAgent) li.classList.add("selected");
+    li.setAttribute("role", "button");
+    li.setAttribute("tabindex", "0");
+
+    const ic = document.createElement("span");
+    ic.className = "agent-ic";
+    ic.textContent = a.icon;
+
+    const txt = document.createElement("div");
+    const name = document.createElement("div");
+    name.className = "a-name";
+    name.textContent = a.name;
+    const sub = document.createElement("div");
+    sub.className = "a-sub";
+    const n = state.sessionCounts[a.id];
+    sub.textContent = n != null
+      ? t("agents_sessions_n", { n })
+      : t("agents_files_n", { n: a.files });
+    txt.appendChild(name);
+    txt.appendChild(sub);
+
+    li.appendChild(ic);
+    li.appendChild(txt);
+    const open = () => selectAgent(a.id);
+    li.addEventListener("click", open);
+    li.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
+    });
+    list.appendChild(li);
+
+    // Contador de sesiones en segundo plano (una vez por agente).
+    if (n == null && !sessionCountsInFlight.has(a.id)) {
+      sessionCountsInFlight.add(a.id);
+      apiJSON("/api/agent/sessions?agent=" + encodeURIComponent(a.id))
+        .then((j) => {
+          state.sessionCounts[a.id] = (j.sessions || []).length;
+          renderAgentList();
+        })
+        .catch(() => {})
+        .finally(() => sessionCountsInFlight.delete(a.id));
+    }
+  }
+}
+
+async function selectAgent(id) {
+  state.selAgent = id;
+  state.sessionDetail = null;
+  renderAgentList();
+  const ag = state.agentsById[id] || { name: id, icon: "✳" };
+  $("sessions-agent-icon").textContent = ag.icon;
+  $("sessions-agent-name").textContent = ag.name;
+  $("sessions-count").textContent = "";
+  // Vaciar la columna al instante: dejar las sesiones del agente anterior
+  // visibles mientras cargan las nuevas invita a clicar datos equivocados.
+  state.sessions = [];
+  $("session-list").innerHTML = "";
+  $("session-list").hidden = true;
+  $("sessions-empty").hidden = true;
+  $("session-view").hidden = true;
+  $("session-empty").hidden = false;
+  await loadSessions(id);
+}
+
+async function loadSessions(id, preserve = false) {
+  let j;
+  try {
+    j = await apiJSON("/api/agent/sessions?agent=" + encodeURIComponent(id));
+  } catch (e) {
+    toast(e.message, "error");
+    return;
+  }
+  if (state.selAgent !== id) return; // el usuario cambió de agente mientras cargaba
+  state.sessions = j.sessions || [];
+  state.sessionCounts[id] = state.sessions.length;
+  $("sessions-count").textContent = t("sessions_found", { n: state.sessions.length });
+  renderAgentList();
+  renderSessions();
+  if (preserve && state.sessionDetail &&
+      !state.sessions.some((s) => s.id === state.sessionDetail.session.id)) {
+    state.sessionDetail = null;
+    $("session-view").hidden = true;
+    $("session-empty").hidden = false;
+  }
+}
+
+// sessionTitle resuelve el título a mostrar de una sesión.
+function sessionTitle(s) {
+  if (s.title) return s.title;
+  if (s.kind === "cluster") return t("session_kind_cluster") + " · " + fmtDate(s.start);
+  return t("session_untitled") + " · " + fmtDate(s.start);
+}
+
+function renderSessions() {
+  const list = $("session-list");
+  list.innerHTML = "";
+  $("sessions-empty").hidden = state.sessions.length > 0;
+  list.hidden = state.sessions.length === 0;
+  const selID = state.sessionDetail ? state.sessionDetail.session.id : null;
+  for (const s of state.sessions) {
+    const li = document.createElement("li");
+    li.className = "session-item";
+    if (s.id === selID) li.classList.add("selected");
+    li.setAttribute("role", "button");
+    li.setAttribute("tabindex", "0");
+
+    const title = document.createElement("div");
+    title.className = "s-title";
+    title.textContent = sessionTitle(s);
+    const meta = document.createElement("div");
+    meta.className = "s-meta";
+    meta.textContent = fmtDate(s.end) + " · " + t("changes_n", { n: s.changes });
+    li.appendChild(title);
+    li.appendChild(meta);
+
+    const open = () => selectSession(s.id);
+    li.addEventListener("click", open);
+    li.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
+    });
+    list.appendChild(li);
+  }
+}
+
+async function selectSession(id) {
+  let j;
+  try {
+    const qs = new URLSearchParams({ agent: state.selAgent, id });
+    j = await apiJSON("/api/agent/session?" + qs.toString());
+  } catch (e) {
+    toast(e.message, "error");
+    return;
+  }
+  state.sessionDetail = j;
+  renderSessions();
+  renderSessionView();
+}
+
+function renderSessionView() {
+  const d = state.sessionDetail;
+  if (!d) return;
+  const s = d.session;
+  $("session-empty").hidden = true;
+  $("session-view").hidden = false;
+
+  $("session-title").textContent = sessionTitle(s);
+  const metaParts = [fmtDate(s.start) + " → " + fmtDate(s.end)];
+  if (s.project) metaParts.push(s.project);
+  if (s.kind === "cluster") metaParts.push(t("session_kind_cluster"));
+  metaParts.push(t("changes_n", { n: s.changes }));
+  $("session-meta").textContent = metaParts.join(" · ");
+
+  $("btn-transcript").hidden = !s.transcript;
+
+  // Chips de resumen a partir del estado por fichero.
+  const files = d.files || [];
+  const created = files.filter((f) => f.created).length;
+  const deleted = files.filter((f) => f.deleted).length;
+  const modified = files.length - files.filter((f) => f.created || f.deleted).length;
+  const stats = $("session-stats");
+  stats.innerHTML = "";
+  const chip = (n, label, cls) => {
+    const el = document.createElement("span");
+    el.className = "stat-chip" + (cls ? " " + cls : "");
+    const strong = document.createElement("strong");
+    strong.textContent = n;
+    el.appendChild(strong);
+    el.appendChild(document.createTextNode(" " + label));
+    stats.appendChild(el);
+  };
+  chip(modified, t("stat_modified"));
+  chip(created, t("stat_created"), "chip-add");
+  chip(deleted, t("stat_deleted"), "chip-del");
+
+  // El revert solo tiene sentido si la sesión tocó ficheros del usuario.
+  $("btn-session-revert").disabled = files.length === 0;
+
+  renderSessionEvents();
+}
+
+function renderSessionEvents() {
+  const d = state.sessionDetail;
+  const list = $("session-events");
+  list.innerHTML = "";
+  const events = d.events || [];
+  $("events-empty").hidden = events.length > 0;
+  list.hidden = events.length === 0;
+  for (const ev of events) {
+    const li = document.createElement("li");
+    li.className = "event-item";
+
+    const time = document.createElement("span");
+    time.className = "ev-time";
+    time.textContent = fmtDate(ev.ts);
+
+    const type = document.createElement("span");
+    type.className = "ev-type " + (ev.first ? "t-new" : "t-mod");
+    type.textContent = ev.first ? t("ev_new") : t("ev_modified");
+
+    const path = document.createElement("span");
+    path.className = "ev-path";
+    path.textContent = ev.path;
+    path.title = ev.path;
+
+    li.appendChild(time);
+    li.appendChild(type);
+    li.appendChild(path);
+
+    const actions = document.createElement("span");
+    actions.className = "ev-actions";
+    const viewBtn = document.createElement("button");
+    viewBtn.type = "button";
+    viewBtn.className = "btn btn-small";
+    viewBtn.textContent = ev.first ? t("ev_view_file") : t("ev_view_diff");
+    viewBtn.addEventListener("click", () => openAgentDiff(ev));
+    actions.appendChild(viewBtn);
+    const revBtn = document.createElement("button");
+    revBtn.type = "button";
+    revBtn.className = "btn btn-small";
+    revBtn.textContent = t("ev_revert_file");
+    revBtn.addEventListener("click", () => openSessionRevert(ev.path));
+    actions.appendChild(revBtn);
+    li.appendChild(actions);
+    list.appendChild(li);
+  }
+}
+
+// --- visor de cambios de un evento ---
+
+let agentDiffPath = null;
+
+async function openAgentDiff(ev) {
+  agentDiffPath = ev.path;
+  $("agentdiff-title").textContent = ev.path + " · " + ev.version;
+  const viewer = $("agentdiff-viewer");
+  viewer.innerHTML = "";
+  openOverlay("agentdiff");
+
+  let res;
+  if (ev.prev) {
+    const qs = new URLSearchParams({ path: ev.path, from: ev.prev, to: ev.version });
+    res = await api("/api/diff?" + qs.toString());
+  } else {
+    const qs = new URLSearchParams({ path: ev.path, version: ev.version });
+    res = await api("/api/content?" + qs.toString());
+  }
+  if (res.status === 415) {
+    viewerMessage(viewer, t("binary_content"));
+    return;
+  }
+  if (!res.ok) {
+    viewerMessage(viewer, t(ev.prev ? "load_diff_error" : "load_content_error"));
+    return;
+  }
+  const text = await res.text();
+  if (!ev.prev) {
+    const pre = document.createElement("pre");
+    pre.textContent = text;
+    viewer.appendChild(pre);
+    return;
+  }
+  if (text.trim() === "") {
+    viewerMessage(viewer, t("no_differences"));
+    return;
+  }
+  const frag = document.createDocumentFragment();
+  for (const line of text.split("\n")) {
+    const span = document.createElement("span");
+    span.className = "diff-line " + diffClass(line);
+    span.textContent = line === "" ? " " : line;
+    frag.appendChild(span);
+  }
+  viewer.appendChild(frag);
+}
+
+// openAgentFileHistory salta al historial completo del fichero en modo clásico.
+function openAgentFileHistory() {
+  if (!agentDiffPath) return;
+  closeOverlay("agentdiff");
+  switchView("files");
+  selectFile(agentDiffPath);
+}
+
+// --- exportar sesión (descarga del transcript) ---
+
+async function downloadTranscript() {
+  const d = state.sessionDetail;
+  if (!d || !d.session.transcript) return;
+  const s = d.session;
+  try {
+    // Del disco si sigue vivo; de la última versión del store si fue borrado.
+    const version = s.transcript_deleted ? s.transcript_version : "current";
+    const qs = new URLSearchParams({ path: s.transcript, version });
+    const res = await api("/api/content?" + qs.toString());
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const text = await res.text();
+    const blob = new Blob([text], { type: "application/x-ndjson" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = s.transcript.split("/").pop();
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  } catch (e) {
+    toast(t("transcript_error", { msg: e.message }), "error");
+  }
+}
+
+// --- reversión de sesión ---
+
+// revertCtx guarda la operación en curso: ventana, ámbito, plan y manifiesto.
+let revertCtx = null;
+
+// openSessionRevert abre el modal con un dry-run del plan. target acota a un
+// fichero o carpeta; vacío = todos los ficheros afectados de la sesión.
+async function openSessionRevert(target) {
+  const d = state.sessionDetail;
+  if (!d) return;
+  revertCtx = { start: d.session.start, end: d.session.end, target: target || "", manifest: null };
+  $("revert-scope").textContent = revertCtx.target
+    ? t("revert_scope_one", { path: revertCtx.target })
+    : t("revert_scope_all");
+  $("revert-plan").innerHTML = "<p class='revert-empty'>" + t("revert_plan_loading") + "</p>";
+  $("revert-confirm").hidden = false;
+  $("revert-confirm").disabled = true;
+  $("revert-confirm").textContent = t("revert_confirm");
+  $("revert-undo").hidden = true;
+  openOverlay("revert");
+
+  try {
+    const plan = await apiJSON("/api/agent/revert", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ start: revertCtx.start, end: revertCtx.end, target: revertCtx.target, dry_run: true }),
+    });
+    revertCtx.plan = plan;
+    renderRevertPlan(plan);
+  } catch (e) {
+    $("revert-plan").innerHTML = "";
+    toast(e.message, "error");
+  }
+}
+
+// renderRevertPlan pinta el plan agrupado por acción.
+function renderRevertPlan(plan) {
+  const box = $("revert-plan");
+  box.innerHTML = "";
+  const groups = [
+    ["revert", "plan_revert"],
+    ["restore_deleted", "plan_restore_deleted"],
+    ["skip_no_prior", "plan_skip_no_prior"],
+    ["skip_unchanged", "plan_skip_unchanged"],
+  ];
+  let actionable = 0;
+  for (const [action, key] of groups) {
+    const items = (plan.items || []).filter((it) => it.action === action);
+    if (items.length === 0) continue;
+    if (action === "revert" || action === "restore_deleted") actionable += items.length;
+    const g = document.createElement("div");
+    g.className = "revert-group";
+    const title = document.createElement("p");
+    title.className = "revert-group-title";
+    title.textContent = t(key, { n: items.length });
+    const ul = document.createElement("ul");
+    for (const it of items) {
+      const li = document.createElement("li");
+      li.textContent = it.path + (it.prior ? " ← " + it.prior : "");
+      ul.appendChild(li);
+    }
+    g.appendChild(title);
+    g.appendChild(ul);
+    box.appendChild(g);
+  }
+  if ((plan.items || []).length === 0) {
+    box.innerHTML = "<p class='revert-empty'>" + t("revert_none") + "</p>";
+  }
+  $("revert-confirm").disabled = actionable === 0;
+}
+
+// doSessionRevert ejecuta el plan confirmado.
+async function doSessionRevert() {
+  if (!revertCtx) return;
+  const btn = $("revert-confirm");
+  btn.disabled = true;
+  btn.textContent = t("revert_running");
+  try {
+    const res = await apiJSON("/api/agent/revert", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ start: revertCtx.start, end: revertCtx.end, target: revertCtx.target, dry_run: false }),
+    });
+    revertCtx.manifest = res;
+    renderRevertPlan(res);
+    const n = res.reverted + res.restored_deleted;
+    toast(t("revert_done", { n }));
+    btn.hidden = true;
+    // Deshacer disponible si alguna restauración dejó safety version.
+    $("revert-undo").hidden = !(res.items || []).some((it) => it.safety_version);
+    await refreshFiles();
+    await refreshStatus();
+  } catch (e) {
+    toast(e.message, "error");
+    btn.disabled = false;
+  } finally {
+    btn.textContent = t("revert_confirm");
+  }
+}
+
+// undoSessionRevert restaura las safety versions del manifiesto (deshace la
+// reversión). Los borrados recuperados sin safety se conservan: nunca borramos.
+async function undoSessionRevert() {
+  const m = revertCtx && revertCtx.manifest;
+  if (!m) return;
+  const btn = $("revert-undo");
+  btn.disabled = true;
+  let n = 0;
+  try {
+    for (const it of m.items || []) {
+      if (!it.safety_version) continue;
+      await apiJSON("/api/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: it.path, version: it.safety_version }),
+      });
+      n++;
+    }
+    toast(t("revert_undo_done", { n }));
+    closeOverlay("revert");
+    await refreshFiles();
+    await refreshStatus();
+  } catch (e) {
+    toast(e.message, "error");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 // --- ajustes ---
 
 function initSettingsTabs() {
@@ -747,8 +1322,13 @@ function initOverlays() {
 
 function handleHash() {
   const h = location.hash;
+  if (h.startsWith("#/agents")) {
+    if (state.view !== "agents") switchView("agents", false);
+    return;
+  }
   const prefix = "#/file/";
   if (h.startsWith(prefix)) {
+    if (state.view !== "files") switchView("files", false);
     const path = decodeURI(h.slice(prefix.length));
     if (path && path !== state.selectedPath) {
       selectFile(path, false);
@@ -781,6 +1361,10 @@ function scheduleLiveRefresh() {
     if (state.selectedPath) {
       // Refresca las versiones del fichero abierto sin perder el foco.
       selectFile(state.selectedPath, false).catch(() => {});
+    }
+    if (state.view === "agents" && state.selAgent) {
+      // Mantiene la lista de sesiones al día mientras el agente trabaja.
+      loadSessions(state.selAgent, true).catch(() => {});
     }
   }, 400);
 }
@@ -842,11 +1426,20 @@ async function connectEvents() {
 function rerenderForLang() {
   renderStatus();
   applyProtection(state.paused);
+  applyAiToggleUI();
   renderFiles();
   if (state.selectedPath) {
     renderVersions();
     renderCompareOptions();
     renderViewer();
+  }
+  if (state.view === "agents") {
+    renderAgentList();
+    renderSessions();
+    if (state.sessionDetail) renderSessionView();
+    if (state.selAgent && state.sessions) {
+      $("sessions-count").textContent = t("sessions_found", { n: state.sessions.length });
+    }
   }
 }
 
@@ -906,6 +1499,16 @@ async function init() {
   $("btn-about").addEventListener("click", () => openOverlay("about"));
   $("settings-form").addEventListener("submit", saveSettings);
   $("btn-purge-ignored").addEventListener("click", purgeIgnored);
+  $("btn-ai-filter").addEventListener("click", cycleAiFilter);
+
+  $("view-files").addEventListener("click", () => switchView("files"));
+  $("view-agents").addEventListener("click", () => switchView("agents"));
+  $("btn-agents-refresh").addEventListener("click", refreshAgentsView);
+  $("btn-transcript").addEventListener("click", downloadTranscript);
+  $("btn-session-revert").addEventListener("click", () => openSessionRevert(""));
+  $("revert-confirm").addEventListener("click", doSessionRevert);
+  $("revert-undo").addEventListener("click", undoSessionRevert);
+  $("agentdiff-history").addEventListener("click", openAgentFileHistory);
 
   window.addEventListener("hashchange", handleHash);
 
@@ -916,6 +1519,8 @@ async function init() {
     return;
   }
 
+  applyAiToggleUI();
+  await loadAgents();
   await refreshStatus();
   await refreshFiles(false);
   handleHash();

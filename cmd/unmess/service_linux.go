@@ -9,14 +9,19 @@ import (
 	"path/filepath"
 )
 
-const systemdUnitName = "unmessai.service"
+func systemdUnitName() string {
+	if devMode == "true" {
+		return "unmessai-dev.service"
+	}
+	return "unmessai.service"
+}
 
 func systemdUnitPath() (string, error) {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return "", fmt.Errorf("resolviendo directorio de configuración: %w", err)
 	}
-	return filepath.Join(dir, "systemd", "user", systemdUnitName), nil
+	return filepath.Join(dir, "systemd", "user", systemdUnitName()), nil
 }
 
 func serviceInstall() error {
@@ -49,7 +54,7 @@ WantedBy=default.target
 	if err := runSystemctl("daemon-reload"); err != nil {
 		return err
 	}
-	if err := runSystemctl("enable", "--now", systemdUnitName); err != nil {
+	if err := runSystemctl("enable", "--now", systemdUnitName()); err != nil {
 		return err
 	}
 	fmt.Printf("servicio instalado: %s\n", unitPath)
@@ -61,7 +66,7 @@ func serviceUninstall() error {
 	if err != nil {
 		return err
 	}
-	_ = runSystemctl("disable", "--now", systemdUnitName)
+	_ = runSystemctl("disable", "--now", systemdUnitName())
 	if err := os.Remove(unitPath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("borrando unidad: %w", err)
 	}
@@ -70,11 +75,11 @@ func serviceUninstall() error {
 	return nil
 }
 
-func serviceStart() error { return runSystemctl("start", systemdUnitName) }
-func serviceStop() error  { return runSystemctl("stop", systemdUnitName) }
+func serviceStart() error { return runSystemctl("start", systemdUnitName()) }
+func serviceStop() error  { return runSystemctl("stop", systemdUnitName()) }
 
 func serviceStatus() (string, error) {
-	out, err := exec.Command("systemctl", "--user", "is-active", systemdUnitName).Output()
+	out, err := exec.Command("systemctl", "--user", "is-active", systemdUnitName()).Output()
 	state := trimOutput(out)
 	if state == "" {
 		state = "desconocido"
