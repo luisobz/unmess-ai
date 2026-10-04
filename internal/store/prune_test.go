@@ -131,6 +131,9 @@ func TestPrunePurgesOldDeletedEvenWithMinKeep(t *testing.T) {
 	makeVersion(t, s, "sub/gone.txt", daysAgo(now, 40), "x")
 	makeVersion(t, s, "sub/gone.txt", daysAgo(now, 45), "x")
 
+	if err := s.MarkDeleted(s.OriginalPath("sub/gone.txt"), daysAgo(now, 40)); err != nil {
+		t.Fatal(err)
+	}
 	cfg := retention.Config{DeletedAgeDays: 30, MinKeep: 10}
 	sum, err := s.Prune(cfg, now, false)
 	if err != nil {
@@ -191,6 +194,9 @@ func TestPrunePruneEmptyParentsWithoutLeavingStore(t *testing.T) {
 	// Único fichero bajo un subdirectorio profundo, borrado y antiguo -> purga.
 	makeVersion(t, s, "deep/nested/gone.txt", daysAgo(now, 60), "x")
 
+	if err := s.MarkDeleted(s.OriginalPath("deep/nested/gone.txt"), daysAgo(now, 40)); err != nil {
+		t.Fatal(err)
+	}
 	cfg := retention.Config{DeletedAgeDays: 30, MinKeep: 3}
 	if _, err := s.Prune(cfg, now, false); err != nil {
 		t.Fatal(err)
@@ -212,6 +218,9 @@ func TestPrunePurgePriorityOverOtherRules(t *testing.T) {
 	for i := 0; i < 4; i++ {
 		makeVersion(t, s, "gone.txt", daysAgo(now, 40+i), "x")
 	}
+	if err := s.MarkDeleted(s.OriginalPath("gone.txt"), daysAgo(now, 40)); err != nil {
+		t.Fatal(err)
+	}
 	cfg := retention.Config{MaxVersions: 2, MaxAgeDays: 90, DeletedAgeDays: 30, MinKeep: 3}
 	sum, err := s.Prune(cfg, now, false)
 	if err != nil {
@@ -219,5 +228,23 @@ func TestPrunePurgePriorityOverOtherRules(t *testing.T) {
 	}
 	if sum.PurgedFiles != 1 || sum.DeletedVersions != 4 {
 		t.Errorf("purge = %d, borradas = %d; quiero 1 y 4", sum.PurgedFiles, sum.DeletedVersions)
+	}
+}
+
+func TestFreshDeletionOfOldFileGetsFullRecoveryWindow(t *testing.T) {
+	s, _ := newStore(t)
+	now := fixedTS(t, "2026-07-11-12-00")
+	makeVersion(t, s, "important.txt", daysAgo(now, 400), "keep me")
+	cfg := retention.Config{DeletedAgeDays: 30, MinKeep: 3}
+	sum, err := s.Prune(cfg, now, false)
+	if err != nil || sum.PurgedFiles != 0 {
+		t.Fatalf("fresh absence purged: %+v %v", sum, err)
+	}
+	if !s.MissingSince("important.txt").Equal(now) {
+		t.Fatal("absence observation not saved")
+	}
+	sum, err = s.Prune(cfg, now.AddDate(0, 0, 31), false)
+	if err != nil || sum.PurgedFiles != 1 {
+		t.Fatalf("expired absence not purged: %+v %v", sum, err)
 	}
 }

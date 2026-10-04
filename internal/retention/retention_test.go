@@ -82,14 +82,14 @@ func TestPlanPurgeOnlyIfDeletedAndOldEnough(t *testing.T) {
 	}
 
 	// Borrado y la versión más reciente supera deleted_age_days: purga.
-	d = Plan(FileInput{Versions: vs, OriginalExists: false}, Config{DeletedAgeDays: 30, MinKeep: 0}, refNow)
+	d = Plan(FileInput{Versions: vs, OriginalExists: false, MissingSince: refNow.AddDate(0, 0, -40)}, Config{DeletedAgeDays: 30, MinKeep: 0}, refNow)
 	if !d.Purge {
 		t.Errorf("debe purgar: borrado y antiguo")
 	}
 
 	// Borrado pero la versión más reciente NO supera el umbral: no purga.
 	recent := []Version{v("v1", 10), v("v2", 45)}
-	d = Plan(FileInput{Versions: recent, OriginalExists: false}, Config{DeletedAgeDays: 30, MinKeep: 0}, refNow)
+	d = Plan(FileInput{Versions: recent, OriginalExists: false, MissingSince: refNow.AddDate(0, 0, -10)}, Config{DeletedAgeDays: 30, MinKeep: 0}, refNow)
 	if d.Purge {
 		t.Errorf("no debe purgar: la versión más reciente es de hace 10 días")
 	}
@@ -98,7 +98,7 @@ func TestPlanPurgeOnlyIfDeletedAndOldEnough(t *testing.T) {
 func TestPlanPurgePriorityOverMinKeep(t *testing.T) {
 	vs := []Version{v("v1", 40), v("v2", 41), v("v3", 42)}
 	cfg := Config{MaxVersions: 2, MaxAgeDays: 90, DeletedAgeDays: 30, MinKeep: 10}
-	d := Plan(FileInput{Versions: vs, OriginalExists: false}, cfg, refNow)
+	d := Plan(FileInput{Versions: vs, OriginalExists: false, MissingSince: refNow.AddDate(0, 0, -40)}, cfg, refNow)
 	if !d.Purge {
 		t.Errorf("la purga tiene prioridad incluso con min_keep alto")
 	}
@@ -111,7 +111,7 @@ func TestPlanZeroConfigDisablesEachRule(t *testing.T) {
 	vs := []Version{v("v1", 1), v("v2", 400), v("v3", 800)}
 
 	// Todo a cero: nada se borra ni purga (aunque haya versiones muy antiguas).
-	d := Plan(FileInput{Versions: vs, OriginalExists: false}, Config{}, refNow)
+	d := Plan(FileInput{Versions: vs, OriginalExists: false, MissingSince: refNow.AddDate(0, 0, -40)}, Config{}, refNow)
 	if d.Purge || len(d.DeleteVersions) != 0 {
 		t.Errorf("config a cero desactiva todo: %+v", d)
 	}
@@ -129,7 +129,7 @@ func TestPlanZeroConfigDisablesEachRule(t *testing.T) {
 	}
 
 	// deleted_age_days=0 no purga.
-	d = Plan(FileInput{Versions: vs, OriginalExists: false}, Config{DeletedAgeDays: 0, MinKeep: 0}, refNow)
+	d = Plan(FileInput{Versions: vs, OriginalExists: false, MissingSince: refNow.AddDate(0, 0, -40)}, Config{DeletedAgeDays: 0, MinKeep: 0}, refNow)
 	if d.Purge {
 		t.Errorf("deleted_age_days=0 no debe purgar")
 	}
@@ -147,5 +147,14 @@ func TestPlanCombinedMaxVersionsAndAge(t *testing.T) {
 	got := deletedNames(d)
 	if len(got) != 2 || got[0] != "d" || got[1] != "e" {
 		t.Errorf("borradas = %v, quiero [d e]", got)
+	}
+}
+
+func TestOldBackupsDoNotProveOldDeletion(t *testing.T) {
+	for _, ts := range []time.Time{{}, refNow} {
+		d := Plan(FileInput{Versions: []Version{v("old", 400)}, OriginalExists: false, MissingSince: ts}, Config{DeletedAgeDays: 30, MinKeep: 1}, refNow)
+		if d.Purge {
+			t.Fatal("fresh or unknown deletion purged")
+		}
 	}
 }

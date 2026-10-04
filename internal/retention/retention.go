@@ -26,6 +26,7 @@ type FileInput struct {
 	Path           string
 	Versions       []Version
 	OriginalExists bool
+	MissingSince   time.Time
 }
 
 // Decision es el resultado por fichero. Si Purge es true se elimina el historial
@@ -43,7 +44,7 @@ type Decision struct {
 //  1. Nunca tocar las MinKeep versiones más recientes.
 //  2. Borrar versiones que excedan MaxVersions (las más antiguas primero).
 //  3. Borrar versiones con antigüedad > MaxAgeDays.
-//  4. Si el original ya no existe y su versión más reciente tiene antigüedad
+//  4. Si el original ya no existe y su ausencia observada tiene antigüedad
 //     > DeletedAgeDays: purgar el historial completo.
 func Plan(f FileInput, cfg Config, now time.Time) Decision {
 	versions := make([]Version, len(f.Versions))
@@ -58,7 +59,7 @@ func Plan(f FileInput, cfg Config, now time.Time) Decision {
 	// si aplica, se elimina todo el historial (incluidas las protegidas).
 	if cfg.DeletedAgeDays > 0 && !f.OriginalExists {
 		cutoff := now.AddDate(0, 0, -cfg.DeletedAgeDays)
-		if versions[0].TS.Before(cutoff) {
+		if !f.MissingSince.IsZero() && f.MissingSince.Before(cutoff) {
 			return Decision{Purge: true}
 		}
 	}

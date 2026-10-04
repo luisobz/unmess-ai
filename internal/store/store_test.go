@@ -3,6 +3,7 @@ package store
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -420,5 +421,115 @@ func TestJournalWrittenOnVersion(t *testing.T) {
 	}
 	if len(entries) != 1 || entries[0].Path != "sub/a.txt" {
 		t.Errorf("journal = %+v, quiero una línea sub/a.txt", entries)
+	}
+}
+
+func TestSameTimestampNeverOverwritesHistory(t *testing.T) {
+	s, base := newStore(t)
+	path := filepath.Join(base, "a.txt")
+	ts := fixedTS(t, "2026-07-11-10-30")
+	var names []string
+	for _, content := range []string{"one", "two", "three"} {
+		writeFile(t, path, content)
+		v, err := s.WriteVersion(path, ts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		names = append(names, v.Name)
+	}
+	for i, name := range names {
+		data, err := s.VersionContent("a.txt", name)
+		if err != nil || string(data) != []string{"one", "two", "three"}[i] {
+			t.Fatalf("history lost: %q %v", data, err)
+		}
+	}
+	vs, err := s.ListVersions("a.txt")
+	if err != nil || len(vs) != 3 {
+		t.Fatalf("versions: %v %v", vs, err)
+	}
+	if !vs[0].TS.After(vs[1].TS) {
+		t.Fatal("collision order lost")
+	}
+}
+
+func TestRestorePreservesExecutablePermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix mode bits")
+	}
+	s, base := newStore(t)
+	path := filepath.Join(base, "run.sh")
+	writeFile(t, path, "old")
+	if err := os.Chmod(path, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	v, err := s.WriteVersion(path, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, path, "new")
+	if _, err := s.Restore("run.sh", v.Name, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil || info.Mode().Perm() != 0o750 {
+		t.Fatalf("mode not preserved: %v %v", info, err)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Restore("run.sh", v.Name, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	info, _ = os.Stat(path)
+	if info.Mode().Perm() != 0o750 {
+		t.Fatal("deleted executable mode not recovered")
+	}
+}
+
+func TestRestoreRejectsSymlinkAndTraversal(t *testing.T) {
+	s, base := newStore(t)
+	path := filepath.Join(base, "docs", "a.txt")
+	writeFile(t, path, "old")
+	v, err := s.WriteVersion(path, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	outside := t.TempDir()
+	writeFile(t, filepath.Join(outside, "a.txt"), "outside")
+	if err := os.RemoveAll(filepath.Join(base, "docs")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(base, "docs")); err != nil {
+		t.Skip(err)
+	}
+	if _, err := s.Restore("docs/a.txt", v.Name, time.Now()); err == nil {
+		t.Fatal("symlink parent accepted")
+	}
+	if _, err := s.Restore("../outside", v.Name, time.Now()); err == nil {
+		t.Fatal("traversal accepted")
+	}
+	got, _ := os.ReadFile(filepath.Join(outside, "a.txt"))
+	if string(got) != "outside" {
+		t.Fatal("outside file changed")
+	}
+}
+
+func TestIndependentStoresPublishWithoutCollisionLoss(t *testing.T) {
+	st, base := newStore(t)
+	path := filepath.Join(base, "shared.txt")
+	writeFile(t, path, "constant")
+	ts := fixedTS(t, "2026-07-11-10-30")
+	results := make(chan error, 20)
+	for i := 0; i < 20; i++ {
+		go func() { other := New(st.Prefix(), base); _, err := other.WriteVersion(path, ts); results <- err }()
+	}
+	for i := 0; i < 20; i++ {
+		if err := <-results; err != nil {
+			t.Fatal(err)
+		}
+	}
+	versions, err := st.ListVersions("shared.txt")
+	if err != nil || len(versions) != 20 {
+		t.Fatalf("collision loss: %d %v", len(versions), err)
 	}
 }

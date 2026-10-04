@@ -46,7 +46,7 @@ func (w *Writer) Append(ts time.Time, relPath string) error {
 	if err := os.MkdirAll(filepath.Dir(w.path), 0o755); err != nil {
 		return fmt.Errorf("creando directorio del journal: %w", err)
 	}
-	f, err := os.OpenFile(w.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	f, err := os.OpenFile(w.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return fmt.Errorf("abriendo journal: %w", err)
 	}
@@ -95,23 +95,53 @@ func Tail(path string, n int) ([]Entry, error) {
 	if n <= 0 {
 		return nil, nil
 	}
-	all, err := Read(path)
+	// Allocate only for entries actually seen, even if a caller requests a
+	// large limit. The journal can grow for months without loading it all.
+	var ring []Entry
+	next := 0
+	err := scan(path, func(e Entry) {
+		if len(ring) < n {
+			ring = append(ring, e)
+		} else {
+			ring[next] = e
+			next = (next + 1) % n
+		}
+	})
 	if err != nil {
 		return nil, err
 	}
-	if len(all) > n {
-		all = all[len(all)-n:]
+	if len(ring) < n || next == 0 {
+		return ring, nil
 	}
-	return all, nil
+	out := make([]Entry, 0, len(ring))
+	out = append(out, ring[next:]...)
+	out = append(out, ring[:next]...)
+	return out, nil
 }
 
-// Count devuelve el número de líneas válidas del journal.
 func Count(path string) (int, error) {
-	all, err := Read(path)
-	if err != nil {
-		return 0, err
+	count := 0
+	err := scan(path, func(Entry) { count++ })
+	return count, err
+}
+
+func scan(path string, visit func(Entry)) error {
+	f, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return nil
 	}
-	return len(all), nil
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
+	for sc.Scan() {
+		if e, ok := parseLine(sc.Text()); ok {
+			visit(e)
+		}
+	}
+	return sc.Err()
 }
 
 func parseLine(line string) (Entry, bool) {

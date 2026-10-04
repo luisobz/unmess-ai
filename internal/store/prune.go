@@ -20,6 +20,8 @@ type PruneSummary struct {
 // Prune aplica la política de retención a todo el store. Si dryRun es true no
 // borra nada, solo contabiliza. now es el instante de referencia.
 func (s *Store) Prune(cfg retention.Config, now time.Time, dryRun bool) (PruneSummary, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	files, err := s.ListFiles()
 	if err != nil {
 		return PruneSummary{}, err
@@ -31,8 +33,26 @@ func (s *Store) Prune(cfg retention.Config, now time.Time, dryRun bool) (PruneSu
 		originalExists := false
 		if _, serr := os.Lstat(s.OriginalPath(f.RelPath)); serr == nil {
 			originalExists = true
+		} else if !os.IsNotExist(serr) {
+			return sum, fmt.Errorf("comprobando original antes de podar: %w", serr)
 		}
 
+		missingSince := time.Time{}
+		if !originalExists {
+			missingSince = s.MissingSince(f.RelPath)
+			if missingSince.IsZero() {
+				missingSince = now
+				if !dryRun {
+					if err := s.markMissing(f.RelPath, now); err != nil {
+						return sum, err
+					}
+				}
+			}
+		} else if !dryRun {
+			if err := os.Remove(filepath.Join(s.versionDir(f.RelPath), deletionMarker)); err != nil && !os.IsNotExist(err) {
+				return sum, err
+			}
+		}
 		versions := make([]retention.Version, len(f.Versions))
 		for i, v := range f.Versions {
 			versions[i] = retention.Version{Name: v.Name, TS: v.TS, Size: v.Size}
@@ -42,6 +62,7 @@ func (s *Store) Prune(cfg retention.Config, now time.Time, dryRun bool) (PruneSu
 			Path:           f.RelPath,
 			Versions:       versions,
 			OriginalExists: originalExists,
+			MissingSince:   missingSince,
 		}, cfg, now)
 
 		if decision.Purge {
@@ -77,6 +98,11 @@ func (s *Store) Prune(cfg retention.Config, now time.Time, dryRun bool) (PruneSu
 // estar trackeado). El fichero original en disco no se toca. Devuelve los bytes
 // liberados.
 func (s *Store) Forget(relPath string) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := validRelative(relPath); err != nil {
+		return 0, err
+	}
 	versions, err := s.ListVersions(relPath)
 	if err != nil {
 		return 0, err

@@ -2,7 +2,8 @@
 
 Protección automática de archivos frente a borrados y modificaciones accidentales,
 incluidos los provocados por agentes de IA que operan sobre el sistema de archivos.
-unmessai versiona en segundo plano cada cambio fuera de los repositorios git y permite
+unmessai guarda en segundo plano copias de las rutas vigiladas (también dentro de
+repositorios Git, respetando sus archivos ignorados) y permite
 restaurar cualquier versión anterior. Es una herramienta local-first: los datos no salen
 de la máquina, no hay telemetría ni servicios en la nube.
 
@@ -31,7 +32,8 @@ unmessai/
 │   ├── textdiff/         Diff unificado y detección de binarios.
 │   ├── daemon/           Orquestador del pipeline y recarga de configuración.
 │   └── api/              Servidor HTTP local (127.0.0.1, con token) para API y UI.
-├── ui/                   Frontend web (HTML/CSS/JS sin frameworks) embebido en unmessd.
+├── ui/                   Frontend web modular (ES modules nativos, sin frameworks
+│                         ni build step) embebido en unmessd. Ver ui/README.md.
 ├── landing/              Web pública del producto (Astro, build estático).
 ├── packaging/
 │   ├── linux/            build-deb.sh (paquete .deb), desktop entries e iconos.
@@ -72,7 +74,7 @@ unmessai/
 
 | Requisito | Versión | Notas |
 |---|---|---|
-| Go | 1.24 o superior | Compila daemon, CLI y UI embebida en cualquier SO. |
+| Go | 1.25 o superior | Compila daemon, CLI y UI embebida en cualquier SO. |
 | git | cualquiera | Opcional en runtime: activa la exclusión gitignore-aware. Si no está instalado, la función se desactiva de forma automática. |
 
 Dependencias Go principales (se resuelven con `go build`): `BurntSushi/toml`,
@@ -397,3 +399,81 @@ UI, instalador de Windows, suite de tests y CI. Pendiente antes de un release p�
 - `packaging/`: empaquetado e instalación por SO; cada subcarpeta tiene su README.
 - `landing/`: web del producto y documentación de usuario.
 - `docs/github-setup.md`: secrets y variables de CI/CD para el despliegue.
+
+## Auditoría de agentes y recuperación
+
+El modo Agente se organiza por **familia → sesión → archivos**, agrupados por
+carpeta y con búsqueda de sesiones y archivos. Cada archivo muestra la herramienta,
+los tiempos registrados, la disponibilidad de una copia y acceso al diff y al historial.
+Las familias se detectan por la presencia de datos locales conocidos; esto no indica
+que el agente esté ejecutándose en ese momento.
+
+La auditoría analiza el **transcript guardado**, no su contenido mutable en vivo:
+
+- Claude Code / CommandCode: `Write`, `Edit` y `MultiEdit`, enlazados a su
+  `tool_result` correcto mediante el identificador de llamada.
+- Codex: llamadas explícitas a `apply_patch` con su resultado de éxito; incluye
+  sesiones archivadas. No se interpretan comandos de shell arbitrarios ni código
+  envolvente de otras herramientas como evidencia de escritura.
+- Los timestamps y el directorio de trabajo salen del transcript cuando están
+  disponibles. La ventana contempla el retardo de guardado (hasta cinco minutos).
+  Si faltan, se identifica expresamente el intervalo basado en copias.
+- Los prompts son contexto temporal; no demuestran que un prompt causara una
+  modificación. Los mensajes inyectados de instrucciones y los prompts sin hora
+  válida no se atribuyen a las versiones.
+- Las coincidencias temporales se ocultan inicialmente y se pueden mostrar como
+  **sin atribución confirmada**. No se deduce el proyecto de la carpeta mayoritaria.
+- Si otra sesión simultánea también registró una escritura sobre el mismo archivo,
+  aparece un enlace a esa sesión. Una copia puede contener trabajo de varios agentes:
+  no permite separar sus cambios automáticamente.
+- Se lee un máximo de 16 MiB por transcript. Los registros dañados y la lectura
+  parcial se señalan; la ausencia de evidencia no demuestra ausencia de cambios.
+  Los transcripts binarios se pueden exportar, pero no se interpretan sus escrituras.
+
+La restauración de una sesión solo incluye archivos con escritura registrada. Omite
+archivos sin copia anterior, con trabajo posterior, cambios aún no guardados,
+atribución compartida o ausencia de fecha verificable para una eliminación. Una
+restauración individual desde el historial sigue disponible para elegir explícitamente
+una copia completa del archivo. Antes de sobrescribir se conserva una copia de seguridad;
+los archivos que no tenían contenido en disco no tienen una copia de seguridad que permita
+volver a su estado de ausencia. **Deshacer no vuelve a borrar archivos recuperados.**
+
+Una primera copia conocida no demuestra creación; una ausencia actual no demuestra
+que la sesión borrara el archivo. Los archivos excluidos pueden aparecer por evidencia
+pero no ofrecen recuperación si no se guardó una copia. Usa «Proteger existentes» antes
+de trabajar para disponer de un estado anterior.
+
+### Integridad del almacenamiento
+
+Los guardados no reemplazan versiones existentes, incluso con timestamps idénticos
+entre procesos: se publican mediante enlace exclusivo a una copia temporal sincronizada.
+Las colisiones añaden precisión de nanosegundos; se conservan los formatos históricos.
+La restauración mantiene permisos de ejecución y rechaza destinos simbólicos y
+traversal. El sistema de archivos del backup debe permitir enlaces duros.
+
+La poda por `deleted_age_days` cuenta desde la **primera ausencia observada**, guardada
+en `.missing-since`, no desde la edad de la última copia. Un archivo antiguo borrado hoy
+conserva su ventana de recuperación. Las ausencias anteriores a esta versión empiezan
+su plazo cuando se observan por primera vez. Las políticas de cantidad y antigüedad
+siguen respetando `min_keep`.
+
+### Pruebas de interfaz
+
+La UI sigue sin necesitar un build ni dependencias Node en ejecución. Las dependencias
+de `ui/package.json` son solo para pruebas. El servidor de pruebas crea archivos
+sintéticos en un directorio temporal; no carga la configuración del usuario.
+
+```sh
+mise exec -- go test -race ./...
+mise exec -- go vet ./...
+mise exec -- pnpm --dir ui install --frozen-lockfile
+mise exec -- pnpm --dir ui test:unit
+mise exec -- pnpm --dir ui exec playwright install --with-deps chromium
+mise exec -- pnpm --dir ui test
+# Alternativa con Chrome instalado (sin descargar Chromium):
+UNMESSAI_TEST_BROWSER=chrome mise exec -- pnpm --dir ui test
+```
+
+GitHub Actions ejecuta las pruebas de Go con detector de carreras, pruebas de navegador
+y compilaciones de daemon/CLI y de las aplicaciones nativas de Windows y Linux.
+Las capturas y resultados se conservan como artefactos del job de UI.

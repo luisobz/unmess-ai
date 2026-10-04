@@ -130,6 +130,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("/api/agents", s.protected(s.handleAgents))
 	mux.HandleFunc("/api/agent/sessions", s.protected(s.handleAgentSessions))
 	mux.HandleFunc("/api/agent/session", s.protected(s.handleAgentSession))
+	mux.HandleFunc("/api/agent/transcript", s.protected(s.handleAgentTranscript))
 	mux.HandleFunc("/api/agent/revert", s.protected(s.handleAgentRevert))
 	mux.HandleFunc("/api/pause", s.protected(s.handlePause))
 	mux.HandleFunc("/api/events", s.protected(s.handleEvents))
@@ -157,6 +158,11 @@ func (s *Server) protected(h http.HandlerFunc) http.HandlerFunc {
 			writeErr(w, http.StatusUnauthorized, "no autorizado: token ausente o inválido")
 			return
 		}
+		if !s.requireLocal(w, r) {
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, 1024*1024)
+		w.Header().Set("Cache-Control", "no-store")
 		h(w, r)
 	}
 }
@@ -313,7 +319,7 @@ func cleanRelPath(p string) (string, error) {
 		return "", fmt.Errorf("la ruta debe ser relativa")
 	}
 	// Normaliza a separadores "/" y rechaza componentes "..".
-	slash := filepath.ToSlash(p)
+	slash := strings.ReplaceAll(filepath.ToSlash(p), "\\", "/")
 	cleaned := path.Clean(slash)
 	if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, "../") {
 		return "", fmt.Errorf("ruta inválida")

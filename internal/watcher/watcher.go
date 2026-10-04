@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
@@ -103,6 +104,11 @@ func (fw *fsWatcher) Add(root string) error {
 	abs, err := filepath.Abs(root)
 	if err != nil {
 		return fmt.Errorf("resolviendo raíz %q: %w", root, err)
+	}
+	if info, err := os.Lstat(abs); err != nil {
+		return err
+	} else if !info.IsDir() {
+		return fmt.Errorf("la raíz vigilada debe ser un directorio")
 	}
 	return fw.addTree(abs, false)
 }
@@ -201,7 +207,12 @@ func (fw *fsWatcher) handle(ev fsnotify.Event) {
 // re-alta si se recrea con el mismo nombre).
 func (fw *fsWatcher) forget(path string) {
 	fw.mu.Lock()
-	delete(fw.added, path)
+	for dir := range fw.added {
+		if dir == path || strings.HasPrefix(dir, path+string(filepath.Separator)) {
+			delete(fw.added, dir)
+			_ = fw.w.Remove(dir)
+		}
+	}
 	fw.mu.Unlock()
 }
 

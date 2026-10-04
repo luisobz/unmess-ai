@@ -202,7 +202,7 @@
 .session-title {
   margin: 0;
   font-size: 19px;
-  letter-spacing: -.01em;
+  letter-spacing: -0.01em;
   overflow-wrap: anywhere;
 }
 
@@ -403,4 +403,247 @@
   color: var(--text-muted);
   font-size: 13px;
   margin: 8px 0;
+}
+
+/* File-centric audit: evidence and recoverability remain visible without
+   expanding the version timeline. Flexible columns also fit laptop windows. */
+.agents-col {
+  width: 190px;
+}
+.sessions-col {
+  width: 270px;
+}
+.session-head {
+  flex-wrap: wrap;
+}
+.session-head-actions {
+  flex-wrap: wrap;
+}
+.session-meta,
+.s-project {
+  overflow-wrap: anywhere;
+}
+.s-project {
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.s-evidence {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.audit-search {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+}
+.sessions-col > .audit-search {
+  margin-bottom: 12px;
+}
+.audit-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.audit-toolbar h3 {
+  font-size: 15px;
+  margin: 0;
+  flex: 1;
+}
+.audit-toolbar .audit-search {
+  flex: 1;
+  max-width: 260px;
+}
+.candidate-toggle {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  margin: 12px 0 18px;
+  color: var(--text-muted);
+}
+.session-scope-note {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  line-height: 1.6;
+  font-size: 12px;
+  background: var(--bg-subtle);
+}
+.folder-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+  margin: 18px 0 8px;
+}
+.audit-files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.audit-file {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  background: var(--bg-elev);
+}
+.audit-file > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px;
+  cursor: pointer;
+}
+.audit-file > summary::before {
+  content: "▸";
+  color: var(--text-muted);
+}
+.audit-file[open] > summary::before {
+  content: "▾";
+}
+.audit-file-name {
+  flex: 1;
+  min-width: 120px;
+  font-size: 13px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.audit-badge {
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  border: 1px solid var(--border);
+}
+.audit-badge.confirmed {
+  color: var(--add-text);
+  background: var(--add-bg);
+}
+.audit-badge.candidate {
+  color: var(--text-muted);
+}
+.audit-file-status {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.audit-file-body {
+  padding: 0 16px 14px;
+  border-top: 1px solid var(--border);
+}
+.audit-full-path {
+  font:
+    12px ui-monospace,
+    monospace;
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+}
+.audit-evidence,
+.audit-warning,
+.tool-evidence {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.tool-evidence {
+  max-height: 160px;
+  overflow: auto;
+}
+.audit-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.audit-timeline {
+  margin-top: 24px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.audit-timeline > summary {
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.event-item {
+  flex-wrap: wrap;
+}
+@media (max-width: 1100px) {
+  .agents-col {
+    width: 160px;
+  }
+  .sessions-col {
+    width: 220px;
+  }
+  .session-view {
+    padding: 16px;
+  }
+  .ev-path {
+    flex-basis: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+@media (max-width: 760px) {
+  .session-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .session-head-main {
+    flex: none;
+    width: 100%;
+  }
+  .session-head-actions {
+    width: 100%;
+  }
+  #agents-layout {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .agents-col,
+  .sessions-col {
+    width: auto;
+    flex: none;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .agent-list {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+  }
+  .agent-item {
+    flex: none;
+  }
+  .agents-tip {
+    margin-top: 10px;
+  }
+  .session-list {
+    max-height: 220px;
+  }
+  .session-main {
+    overflow: visible;
+    flex: none;
+  }
+  .audit-toolbar .audit-search {
+    flex-basis: 100%;
+    max-width: none;
+  }
+}
+
+.audit-shared {
+  padding: 10px;
+  margin: 10px 0;
+  border: 1px solid var(--warning);
+  border-radius: 8px;
+  font-size: 12px;
+}
+.audit-shared .btn {
+  margin: 4px 4px 0 0;
+  white-space: normal;
 }

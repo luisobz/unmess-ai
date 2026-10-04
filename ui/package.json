@@ -1,0 +1,13 @@
+{
+  "name": "unmessai-ui-tests",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.4",
+  "scripts": {
+    "test": "playwright test",
+    "test:unit": "node --test tests/core.test.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.2"
+  }
+}

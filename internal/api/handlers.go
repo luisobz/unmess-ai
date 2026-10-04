@@ -255,10 +255,11 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 // agentEntry describe un agente conocido en GET /api/agents, con cuántos
 // ficheros versionados se le atribuyen actualmente.
 type agentEntry struct {
-	ID    string `json:"id"`
-	Name  string `json:"name"`
-	Icon  string `json:"icon"`
-	Files int    `json:"files"`
+	Detected bool   `json:"detected"`
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Icon     string `json:"icon"`
+	Files    int    `json:"files"`
 }
 
 // handleAgents devuelve el registro de agentes de IA conocidos junto al número
@@ -276,9 +277,10 @@ func (s *Server) handleAgents(w http.ResponseWriter, r *http.Request) {
 	}
 	counts := agents.CountByID(rels)
 	reg := agents.Registry()
+	present := agents.Present(s.store.BaseDir())
 	out := make([]agentEntry, 0, len(reg))
 	for _, a := range reg {
-		out = append(out, agentEntry{ID: a.ID, Name: a.Name, Icon: a.Icon, Files: counts[a.ID]})
+		out = append(out, agentEntry{ID: a.ID, Name: a.Name, Icon: a.Icon, Files: counts[a.ID], Detected: present[a.ID]})
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -336,7 +338,7 @@ func (s *Server) handleContent(w http.ResponseWriter, r *http.Request) {
 // version=="current"), junto con el status HTTP a usar si hay error.
 func (s *Server) readVersionData(rel, version string) ([]byte, int, error) {
 	if version == "current" {
-		data, err := os.ReadFile(s.store.OriginalPath(rel))
+		data, err := s.store.OriginalContent(rel)
 		if err != nil {
 			if os.IsNotExist(err) {
 				return nil, http.StatusNotFound, err
@@ -610,6 +612,9 @@ func (s *Server) handleJournal(w http.ResponseWriter, r *http.Request) {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			limit = n
 		}
+	}
+	if limit > 1000 {
+		limit = 1000
 	}
 	entries, err := journal.Tail(s.store.JournalPath(), limit)
 	if err != nil {

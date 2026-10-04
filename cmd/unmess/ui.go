@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -57,13 +58,13 @@ func cmdUI(configPath string, args []string) error {
 		}
 	}
 
-	if err := ensureDaemonRunning(cfg.UI.Port); err != nil {
+	if err := ensureDaemonRunning(cfg.UI.Port, cfg.Path()); err != nil {
 		fmt.Printf("(no se pudo arrancar el daemon automáticamente: %v)\n", err)
 	}
 
 	url := fmt.Sprintf("http://127.0.0.1:%d/", cfg.UI.Port)
 	if rel != "" {
-		url += "#/file/" + rel
+		url += "#/file/" + urlPath(rel)
 	}
 	fmt.Println(url)
 	if err := openBrowser(url); err != nil {
@@ -78,7 +79,7 @@ func cmdUI(configPath string, args []string) error {
 // root y expandiría "~" a /root en vez de al home real del usuario). Solo se
 // usa en el fallback de navegador: cuando se abre la app nativa, es ella
 // quien se encarga de arrancar el daemon (ver ensureDaemon en unmess-app).
-func ensureDaemonRunning(port int) error {
+func ensureDaemonRunning(port int, configPath string) error {
 	baseURL := fmt.Sprintf("http://127.0.0.1:%d", port)
 	if daemonAlive(baseURL) {
 		return nil
@@ -88,7 +89,7 @@ func ensureDaemonRunning(port int) error {
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command(exe)
+	cmd := exec.Command(exe, "--config", configPath)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("arrancando %s: %w", exe, err)
 	}
@@ -169,3 +170,5 @@ func openBrowser(url string) error {
 	}
 	return lastErr
 }
+
+func urlPath(rel string) string { return url.PathEscape(rel) }
