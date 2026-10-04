@@ -31,7 +31,8 @@ unmessai/
 │   ├── textdiff/         Diff unificado y detección de binarios.
 │   ├── daemon/           Orquestador del pipeline y recarga de configuración.
 │   └── api/              Servidor HTTP local (127.0.0.1, con token) para API y UI.
-├── ui/                   Frontend web (HTML/CSS/JS sin frameworks) embebido en unmessd.
+├── ui/                   Frontend web modular (ES modules nativos, sin frameworks
+│                         ni build step) embebido en unmessd. Ver ui/README.md.
 ├── landing/              Web pública del producto (Astro, build estático).
 ├── packaging/
 │   ├── linux/            build-deb.sh (paquete .deb), desktop entries e iconos.

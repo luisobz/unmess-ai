@@ -81,8 +81,8 @@
 }
 
 .btn-pause[aria-pressed="true"] {
-  border-color: #d97706;
-  color: #d97706;
+  border-color: var(--warning);
+  color: var(--warning);
 }
 
 .btn-pause .pause-icon,
@@ -283,7 +283,7 @@
   top: 50%;
   width: 22px;
   height: 2px;
-  background: var(--del-text, #c0392b);
+  background: var(--del-text);
   border-radius: 2px;
   transform: translate(-50%, -50%) rotate(-45deg);
 }

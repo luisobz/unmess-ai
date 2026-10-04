@@ -1,75 +1,49 @@
 /* unmessai UI — variables, reset y elementos base */
 
 :root {
-  --bg: #f7f7f5;
-  --bg-elev: #ffffff;
-  --bg-subtle: #f1f0ee;
-  --text: #1c1917;
-  --text-muted: #6f6a64;
-  --border: #e5e3df;
-  --border-strong: #c9c5bf;
-  --primary: #16150f;
-  --primary-text: #ffffff;
-  --accent: #16a34a;
-  --danger: #dc2626;
-  --danger-bg: #fef2f2;
-  --add-bg: #ecfdf5;
-  --add-text: #047857;
-  --del-bg: #fef2f2;
-  --del-text: #b91c1c;
-  --hunk-text: #2563eb;
-  --shadow: 0 1px 2px rgba(28, 25, 23, .05), 0 8px 24px rgba(28, 25, 23, .06);
-  --shadow-lg: 0 12px 40px rgba(28, 25, 23, .18);
+  /* Paleta y superficies. Cada token define su valor claro y oscuro con
+     light-dark(); el tema efectivo lo decide `color-scheme` (al final del
+     bloque), de modo que no hay paletas duplicadas por tema que mantener. */
+  --bg: light-dark(#f7f7f5, #131211);
+  --bg-elev: light-dark(#ffffff, #1d1c1a);
+  --bg-subtle: light-dark(#f1f0ee, #262421);
+  --text: light-dark(#1c1917, #ece9e4);
+  --text-muted: light-dark(#6f6a64, #a49e96);
+  --border: light-dark(#e5e3df, #33302c);
+  --border-strong: light-dark(#c9c5bf, #4a463f);
+  --primary: light-dark(#16150f, #ece9e4);
+  --primary-text: light-dark(#ffffff, #16150f);
+  --accent: light-dark(#16a34a, #34d399);
+  --danger: light-dark(#dc2626, #f87171);
+  --danger-bg: light-dark(#fef2f2, #2c1a1a);
+  --danger-text: #ffffff; /* texto sobre superficies de peligro (botón, aviso) */
+  --warning: light-dark(#d97706, #fbbf24); /* ámbar de "protección en pausa" */
+  --add-bg: light-dark(#ecfdf5, #10251c);
+  --add-text: light-dark(#047857, #4ade80);
+  --del-bg: light-dark(#fef2f2, #2c1717);
+  --del-text: light-dark(#b91c1c, #f87171);
+  --hunk-text: light-dark(#2563eb, #60a5fa);
+
+  /* Sombras: light-dark() solo admite <color>, así que la geometría es fija y el
+     color se interpola por tema con tokens dedicados. */
+  --shadow-near: light-dark(rgba(28, 25, 23, .05), rgba(0, 0, 0, .4));
+  --shadow-far: light-dark(rgba(28, 25, 23, .06), rgba(0, 0, 0, .3));
+  --shadow-lg-color: light-dark(rgba(28, 25, 23, .18), rgba(0, 0, 0, .55));
+  --shadow: 0 1px 2px var(--shadow-near), 0 8px 24px var(--shadow-far);
+  --shadow-lg: 0 12px 40px var(--shadow-lg-color);
+
   --radius: 12px;
   --radius-sm: 8px;
+
+  /* Sin data-theme se sigue la preferencia del SO; el botón de tema fija uno. */
+  color-scheme: light dark;
+}
+
+:root[data-theme="light"] {
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #131211;
-    --bg-elev: #1d1c1a;
-    --bg-subtle: #262421;
-    --text: #ece9e4;
-    --text-muted: #a49e96;
-    --border: #33302c;
-    --border-strong: #4a463f;
-    --primary: #ece9e4;
-    --primary-text: #16150f;
-    --accent: #34d399;
-    --danger: #f87171;
-    --danger-bg: #2c1a1a;
-    --add-bg: #10251c;
-    --add-text: #4ade80;
-    --del-bg: #2c1717;
-    --del-text: #f87171;
-    --hunk-text: #60a5fa;
-    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .3);
-    --shadow-lg: 0 12px 40px rgba(0, 0, 0, .55);
-    color-scheme: dark;
-  }
-}
-
 :root[data-theme="dark"] {
-  --bg: #131211;
-  --bg-elev: #1d1c1a;
-  --bg-subtle: #262421;
-  --text: #ece9e4;
-  --text-muted: #a49e96;
-  --border: #33302c;
-  --border-strong: #4a463f;
-  --primary: #ece9e4;
-  --primary-text: #16150f;
-  --accent: #34d399;
-  --danger: #f87171;
-  --danger-bg: #2c1a1a;
-  --add-bg: #10251c;
-  --add-text: #4ade80;
-  --del-bg: #2c1717;
-  --del-text: #f87171;
-  --hunk-text: #60a5fa;
-  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .3);
-  --shadow-lg: 0 12px 40px rgba(0, 0, 0, .55);
   color-scheme: dark;
 }
 
