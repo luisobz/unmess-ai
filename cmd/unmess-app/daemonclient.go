@@ -64,7 +64,7 @@ func fetchToken(baseURL string) (string, error) {
 // devuelve un cliente listo. Si no responde, arranca unmessd y espera a que
 // levante. spawned indica si esta app arrancó el daemon (para poder pararlo al
 // salir).
-func ensureDaemon(port int) (client *daemonClient, spawned *exec.Cmd, err error) {
+func ensureDaemon(port int, configPath string) (client *daemonClient, spawned *exec.Cmd, err error) {
 	baseURL := fmt.Sprintf("http://127.0.0.1:%d", port)
 
 	if tok, terr := fetchToken(baseURL); terr == nil {
@@ -72,7 +72,7 @@ func ensureDaemon(port int) (client *daemonClient, spawned *exec.Cmd, err error)
 	}
 
 	// No responde: arrancamos el daemon nosotros.
-	cmd, serr := startDaemon()
+	cmd, serr := startDaemon(configPath)
 	if serr != nil {
 		return nil, nil, serr
 	}
@@ -154,12 +154,12 @@ func (c *daemonClient) doAuthed(ctx context.Context, method, path string, body [
 }
 
 // startDaemon localiza y lanza el binario unmessd.
-func startDaemon() (*exec.Cmd, error) {
+func startDaemon(configPath string) (*exec.Cmd, error) {
 	path, err := findUnmessd()
 	if err != nil {
 		return nil, err
 	}
-	cmd := exec.Command(path)
+	cmd := exec.Command(path, "--config", configPath)
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	hideSpawnedConsole(cmd)

@@ -1,45 +1,75 @@
-// overlay.js — apertura/cierre de modales y drawers con gestión de foco.
-//
-// Cada overlay es <div id="<name>-overlay" class="overlay" hidden>. Los botones
-// con data-close="<name>" cierran el suyo; clic en el fondo o Escape cierran el
-// que esté abierto. Al abrir se guarda el foco previo y se lo devuelve al cerrar.
+// Modal focus follows the active overlay, including nested dialogs.
 import { $ } from "./dom.js";
 
-let lastFocus = null;
-
-// openOverlay muestra un overlay y enfoca su primer control.
+const focusByOverlay = new Map();
+const stack = [];
+function controls(ov) {
+  return [
+    ...ov.querySelectorAll(
+      "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex='-1'])",
+    ),
+  ].filter((el) => el.getClientRects().length > 0);
+}
 export function openOverlay(name) {
-  lastFocus = document.activeElement;
   const ov = $(name + "-overlay");
   if (!ov) return;
+  if (ov.hidden) {
+    focusByOverlay.set(name, document.activeElement);
+    stack.push(name);
+  }
   ov.hidden = false;
-  const focusable = ov.querySelector("input, button, select, textarea, [tabindex]");
-  if (focusable) focusable.focus();
+  controls(ov)[0]?.focus();
 }
-
-// closeOverlay oculta un overlay y devuelve el foco a quien lo abrió.
 export function closeOverlay(name) {
   const ov = $(name + "-overlay");
   if (ov) ov.hidden = true;
-  if (lastFocus && lastFocus.focus) lastFocus.focus();
+  const idx = stack.lastIndexOf(name);
+  if (idx >= 0) stack.splice(idx, 1);
+  const previous = focusByOverlay.get(name);
+  focusByOverlay.delete(name);
+  if (previous?.isConnected && !previous.closest("[hidden]")) previous.focus();
 }
-
-// initOverlays cablea los cierres comunes: botones data-close, clic en el fondo
-// y tecla Escape.
 export function initOverlays() {
-  document.querySelectorAll("[data-close]").forEach((btn) => {
-    btn.addEventListener("click", () => closeOverlay(btn.dataset.close));
-  });
-  document.querySelectorAll(".overlay").forEach((ov) => {
+  document
+    .querySelectorAll("[data-close]")
+    .forEach((btn) =>
+      btn.addEventListener("click", () => closeOverlay(btn.dataset.close)),
+    );
+  document.querySelectorAll(".overlay").forEach((ov) =>
     ov.addEventListener("click", (e) => {
-      if (e.target === ov) ov.hidden = true;
-    });
-  });
+      if (e.target === ov) closeOverlay(ov.id.replace(/-overlay$/, ""));
+    }),
+  );
   document.addEventListener("keydown", (e) => {
+    const name = stack[stack.length - 1];
+    if (!name) return;
     if (e.key === "Escape") {
-      document.querySelectorAll(".overlay:not([hidden])").forEach((ov) => {
-        ov.hidden = true;
-      });
+      e.preventDefault();
+      closeOverlay(name);
+      return;
+    }
+    if (e.key !== "Tab") return;
+    const list = controls($(name + "-overlay"));
+    if (!list.length) {
+      e.preventDefault();
+      return;
+    }
+    const first = list[0],
+      last = list[list.length - 1];
+    if (
+      e.shiftKey &&
+      (document.activeElement === first ||
+        !list.includes(document.activeElement))
+    ) {
+      e.preventDefault();
+      last.focus();
+    } else if (
+      !e.shiftKey &&
+      (document.activeElement === last ||
+        !list.includes(document.activeElement))
+    ) {
+      e.preventDefault();
+      first.focus();
     }
   });
 }

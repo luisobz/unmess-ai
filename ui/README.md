@@ -5,7 +5,7 @@ modo Agente (agentes → sesiones → traza → reversión), actividad y ajustes
 
 **Sin frameworks y sin build step.** Es JavaScript modular con **ES modules
 nativos** (`import`/`export`), servido tal cual y embebido en el binario del
-daemon con `go:embed` (ver `embed.go`). No hay npm, ni bundler, ni `dist/`: el
+daemon con `go:embed` (ver `embed.go`). No hay bundler ni `dist/` en ejecución (`package.json` solo prepara las pruebas): el
 daemon se sigue cross-compilando desde cualquier SO con un solo `go build`.
 
 ## Estructura
@@ -102,3 +102,15 @@ Comprobaciones útiles:
 node --check src/**/*.js     # sintaxis de cada módulo (sin ejecutarlo)
 go test ./internal/api/...   # el servidor sirve index.html y el grafo de módulos
 ```
+
+### Auditoría centrada en archivos
+
+`features/agents.js` presenta archivos agrupados por carpeta, evidencia de herramientas,
+coincidencias temporales opcionales, sesiones simultáneas y recuperación disponible.
+Las generaciones de petición impiden que respuestas antiguas sustituyan la selección
+actual. Los modales conservan el contexto confirmado y gestionan el foco del teclado.
+
+Las pruebas Playwright en `tests/` arrancan `tests/fixture`, un servidor de API real con
+un store sintético temporal. `pnpm test` comprueba selección, atribución, filtros, diff,
+recuperación y deshacer, idiomas, temas, diseño adaptable y navegación por teclado.
+`pnpm test:unit` verifica rutas con caracteres reservados y hashes dañados.

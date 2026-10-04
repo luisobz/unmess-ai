@@ -9,6 +9,8 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -130,7 +132,7 @@ func Transcript(rel string) (agentID, project string, ok bool) {
 		return "claude", strings.TrimPrefix(parts[2], "-"), true
 	case len(parts) == 4 && parts[0] == ".commandcode" && parts[1] == "projects":
 		return "commandcode", strings.TrimPrefix(parts[2], "-"), true
-	case len(parts) >= 3 && parts[0] == ".codex" && parts[1] == "sessions":
+	case len(parts) >= 3 && parts[0] == ".codex" && (parts[1] == "sessions" || parts[1] == "archived_sessions") && strings.HasPrefix(parts[len(parts)-1], "rollout-"):
 		return "codex", "", true
 	}
 	return "", "", false
@@ -282,7 +284,7 @@ func contentText(content any) string {
 
 func usefulText(s string) string {
 	s = strings.TrimSpace(s)
-	if s == "" || strings.HasPrefix(s, "<") || strings.HasPrefix(s, "Caveat:") {
+	if s == "" || strings.HasPrefix(s, "<") || isInjectedText(s) {
 		return ""
 	}
 	return s
@@ -297,4 +299,19 @@ func clipTitle(s string) string {
 		return s
 	}
 	return strings.TrimSpace(string(r[:max])) + "…"
+}
+
+// Present detects known agent state paths without opening their contents.
+// Presence means local data exists, not that an agent is currently running.
+func Present(base string) map[string]bool {
+	out := make(map[string]bool)
+	for _, a := range registry {
+		for _, rel := range append(append([]string{}, a.dirs...), a.files...) {
+			if _, err := os.Lstat(filepath.Join(base, filepath.FromSlash(rel))); err == nil {
+				out[a.ID] = true
+				break
+			}
+		}
+	}
+	return out
 }

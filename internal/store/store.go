@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/luisobz/unmess-ai/internal/journal"
@@ -32,6 +33,7 @@ type Store struct {
 	prefix  string
 	baseDir string
 	journal *journal.Writer
+	mu      sync.Mutex
 }
 
 // VersionResult describe una versión recién escrita.
@@ -118,7 +120,12 @@ func (s *Store) versionDir(relPath string) string {
 // VersionName construye el nombre de versión para un fichero con extensión ext
 // (incluyendo el punto, o vacío) en el instante ts.
 func VersionName(ts time.Time, ext string) string {
-	return versionPrefix + ts.Format(versionLayout) + ext
+	ts = ts.In(time.Local)
+	layout := versionLayout
+	if ts.Nanosecond() != 0 {
+		layout += ".000000000"
+	}
+	return versionPrefix + ts.Format(layout) + ext
 }
 
 // WriteVersion copia el contenido actual de absPath a una nueva versión y añade
@@ -126,19 +133,52 @@ func VersionName(ts time.Time, ext string) string {
 // consecutivas dentro del mismo minuto se pisen (escritura a temporal + rename
 // atómico).
 func (s *Store) WriteVersion(absPath string, ts time.Time) (VersionResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.writeVersion(absPath, ts)
+}
+
+func (s *Store) writeVersion(absPath string, ts time.Time) (VersionResult, error) {
 	relPath, err := s.RelPath(absPath)
 	if err != nil {
 		return VersionResult{}, err
 	}
+	if err := rejectSymlinkParents(s.baseDir, relPath); err != nil {
+		return VersionResult{}, err
+	}
+	if info, err := os.Lstat(absPath); err != nil || !info.Mode().IsRegular() {
+		return VersionResult{}, fmt.Errorf("el origen no es un fichero regular")
+	}
 	ext := filepath.Ext(absPath)
 	dir := s.versionDir(relPath)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return VersionResult{}, fmt.Errorf("creando directorio de versiones: %w", err)
 	}
-	name := VersionName(ts, ext)
-	dst := filepath.Join(dir, name)
-
-	if err := copyAtomic(absPath, dst); err != nil {
+	// Publish with an exclusive hard link: even another daemon or CLI
+	// cannot overwrite a version when timestamps collide. The temporary file
+	// is complete and synced before its name becomes visible to readers.
+	tmp, err := prepareCopy(absPath, dir, 0)
+	if err != nil {
+		return VersionResult{}, err
+	}
+	defer os.Remove(tmp)
+	var name, dst string
+	for attempts := 0; ; attempts++ {
+		if attempts > 10000 {
+			return VersionResult{}, fmt.Errorf("demasiadas colisiones de versiones")
+		}
+		name = VersionName(ts, ext)
+		dst = filepath.Join(dir, name)
+		if err := os.Link(tmp, dst); err != nil {
+			if os.IsExist(err) {
+				ts = ts.Add(time.Nanosecond)
+				continue
+			}
+			return VersionResult{}, fmt.Errorf("publicando versión sin sobrescribir: %w", err)
+		}
+		break
+	}
+	if err := os.Remove(filepath.Join(dir, deletionMarker)); err != nil && !os.IsNotExist(err) {
 		return VersionResult{}, err
 	}
 	if err := s.journal.Append(ts, relPath); err != nil {
@@ -152,13 +192,28 @@ func (s *Store) WriteVersion(absPath string, ts time.Time) (VersionResult, error
 // versión (pre-restore safety copy) y devuelve su nombre; en caso contrario
 // devuelve "".
 func (s *Store) Restore(relPath, name string, ts time.Time) (safety string, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	// CLI callers receive the same containment guarantees as API callers.
+	if err := validRelative(relPath); err != nil {
+		return "", err
+	}
+	if filepath.Base(name) != name || strings.ContainsAny(name, "/\\") {
+		return "", fmt.Errorf("nombre de versión inválido")
+	}
+	if err := rejectSymlinkParents(s.baseDir, relPath); err != nil {
+		return "", err
+	}
 	src := filepath.Join(s.versionDir(relPath), name)
 	if _, err := os.Stat(src); err != nil {
 		return "", fmt.Errorf("versión %q no encontrada: %w", name, err)
 	}
 	dst := s.OriginalPath(relPath)
 
-	if _, err := os.Lstat(dst); err == nil {
+	if info, err := os.Lstat(dst); err == nil {
+		if !info.Mode().IsRegular() {
+			return "", fmt.Errorf("el destino no es un fichero regular")
+		}
 		safety, err = s.writeSafetyCopy(dst, relPath, ts)
 		if err != nil {
 			return "", fmt.Errorf("escribiendo copia de seguridad: %w", err)
@@ -172,6 +227,9 @@ func (s *Store) Restore(relPath, name string, ts time.Time) (safety string, err 
 	}
 	if err := copyAtomic(src, dst); err != nil {
 		return "", fmt.Errorf("restaurando versión: %w", err)
+	}
+	if err := os.Remove(filepath.Join(s.versionDir(relPath), deletionMarker)); err != nil && !os.IsNotExist(err) {
+		return safety, err
 	}
 	return safety, nil
 }
@@ -303,13 +361,15 @@ func ParseVersionTime(name string) (time.Time, bool) {
 		return time.Time{}, false
 	}
 	body := name[len(versionPrefix):]
+	candidates := []string{body}
 	if ext := filepath.Ext(name); ext != "" {
-		body = strings.TrimSuffix(body, ext)
+		candidates = append(candidates, strings.TrimSuffix(body, ext))
 	}
-	for _, layout := range []string{versionLayout, legacyVersionLayout} {
-		ts, err := time.ParseInLocation(layout, body, time.Local)
-		if err == nil {
-			return ts, true
+	for _, candidate := range candidates {
+		for _, layout := range []string{versionLayout + ".000000000", versionLayout, legacyVersionLayout} {
+			if ts, err := time.ParseInLocation(layout, candidate, time.Local); err == nil {
+				return ts, true
+			}
 		}
 	}
 	return time.Time{}, false
@@ -335,7 +395,7 @@ func lessDesc(a, b VersionInfo) bool {
 // restore. A diferencia del versionado normal, nunca debe sobrescribir una
 // versión existente (podría machacar justo la versión que se va a restaurar, o
 // una versión aún no reflejada en disco): si el nombre del segundo actual está
-// ocupado, avanza de segundo en segundo hasta uno libre. Si el contenido en
+// ocupado, la publicación exclusiva añade precisión de nanosegundos. Si el contenido en
 // disco ya es idéntico a la versión más reciente, la reutiliza sin escribir
 // nada.
 func (s *Store) writeSafetyCopy(absPath, relPath string, ts time.Time) (string, error) {
@@ -348,19 +408,7 @@ func (s *Store) writeSafetyCopy(absPath, relPath string, ts time.Time) (string, 
 			return versions[0].Name, nil
 		}
 	}
-	ext := filepath.Ext(absPath)
-	sts := ts
-	for i := 0; ; i++ {
-		if i > 10000 {
-			return "", fmt.Errorf("sin nombre libre para la copia de seguridad de %q", relPath)
-		}
-		name := VersionName(sts, ext)
-		if _, serr := os.Lstat(filepath.Join(s.versionDir(relPath), name)); os.IsNotExist(serr) {
-			break
-		}
-		sts = sts.Add(time.Second)
-	}
-	res, err := s.WriteVersion(absPath, sts)
+	res, err := s.writeVersion(absPath, ts)
 	if err != nil {
 		return "", err
 	}
@@ -416,33 +464,111 @@ func filesEqual(a, b string) (bool, error) {
 
 // copyAtomic copia src a dst escribiendo en un temporal en el mismo directorio y
 // renombrando (atómico dentro del mismo sistema de ficheros).
-func copyAtomic(src, dst string) (err error) {
-	in, err := os.Open(src)
+func copyAtomic(src, dst string) error {
+	var mode os.FileMode
+	if info, err := os.Lstat(dst); err == nil {
+		mode = info.Mode().Perm()
+	}
+	tmp, err := prepareCopy(src, filepath.Dir(dst), mode)
 	if err != nil {
-		return fmt.Errorf("abriendo origen: %w", err)
+		return err
 	}
-	defer in.Close()
-
-	tmp, err := os.CreateTemp(filepath.Dir(dst), ".tmp-*")
-	if err != nil {
-		return fmt.Errorf("creando temporal: %w", err)
-	}
-	tmpName := tmp.Name()
-	defer func() {
-		if err != nil {
-			_ = os.Remove(tmpName)
-		}
-	}()
-
-	if _, err = io.Copy(tmp, in); err != nil {
-		tmp.Close()
-		return fmt.Errorf("copiando contenido: %w", err)
-	}
-	if err = tmp.Close(); err != nil {
-		return fmt.Errorf("cerrando temporal: %w", err)
-	}
-	if err = os.Rename(tmpName, dst); err != nil {
+	defer os.Remove(tmp)
+	if err := os.Rename(tmp, dst); err != nil {
 		return fmt.Errorf("renombrando temporal: %w", err)
 	}
 	return nil
+}
+
+func prepareCopy(src, dir string, mode os.FileMode) (name string, err error) {
+	in, err := os.Open(src)
+	if err != nil {
+		return "", fmt.Errorf("abriendo origen: %w", err)
+	}
+	defer in.Close()
+	info, err := in.Stat()
+	if err != nil {
+		return "", err
+	}
+	if !info.Mode().IsRegular() {
+		return "", fmt.Errorf("el origen no es un fichero regular")
+	}
+	if mode == 0 {
+		mode = info.Mode().Perm()
+	}
+	tmp, err := os.CreateTemp(dir, ".tmp-*")
+	if err != nil {
+		return "", err
+	}
+	name = tmp.Name()
+	tempName := name
+	defer func() {
+		tmp.Close()
+		if err != nil {
+			os.Remove(tempName)
+		}
+	}()
+	if _, err = io.Copy(tmp, in); err != nil {
+		return "", fmt.Errorf("copiando contenido: %w", err)
+	}
+	if err = tmp.Chmod(mode); err != nil {
+		return "", err
+	}
+	if err = tmp.Sync(); err != nil {
+		return "", err
+	}
+	if err = tmp.Close(); err != nil {
+		return "", err
+	}
+	return name, nil
+}
+
+func validRelative(rel string) error {
+	if rel == "" || filepath.IsAbs(rel) || strings.Contains(rel, "\\") {
+		return ErrOutsideBase
+	}
+	for _, part := range strings.Split(filepath.ToSlash(rel), "/") {
+		if part == ".." || part == "." || part == "" {
+			return ErrOutsideBase
+		}
+	}
+	return nil
+}
+
+func rejectSymlinkParents(base, rel string) error {
+	p := base
+	parts := strings.Split(filepath.ToSlash(rel), "/")
+	for _, part := range parts[:len(parts)-1] {
+		p = filepath.Join(p, part)
+		info, err := os.Lstat(p)
+		if os.IsNotExist(err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("restauración rechazada: directorio simbólico")
+		}
+	}
+	return nil
+}
+
+// OriginalContent reads a regular file without following symlink directories.
+func (s *Store) OriginalContent(rel string) ([]byte, error) {
+	if err := validRelative(rel); err != nil {
+		return nil, err
+	}
+	if err := rejectSymlinkParents(s.baseDir, rel); err != nil {
+		return nil, err
+	}
+	path := s.OriginalPath(rel)
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("el origen no es un fichero regular")
+	}
+	return os.ReadFile(path)
 }

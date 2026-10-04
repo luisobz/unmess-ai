@@ -143,3 +143,36 @@ func TestWatcherExcludeFunc(t *testing.T) {
 		t.Errorf("no debería haber evento del directorio excluido: %s", inExcluded)
 	}
 }
+
+func TestForgetRemovesDescendantsForRecreatedFolders(t *testing.T) {
+	root := t.TempDir()
+	nested := filepath.Join(root, "sub", "deep")
+	if err := os.MkdirAll(nested, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	w, err := New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	if err := w.Add(root); err != nil {
+		t.Fatal(err)
+	}
+	fw := w.(*fsWatcher)
+	fw.forget(filepath.Join(root, "sub"))
+	fw.mu.Lock()
+	_, stale := fw.added[nested]
+	fw.mu.Unlock()
+	if stale {
+		t.Fatal("descendant remains registered after parent removal")
+	}
+	if err := fw.addTree(filepath.Join(root, "sub"), false); err != nil {
+		t.Fatal(err)
+	}
+	fw.mu.Lock()
+	_, registered := fw.added[nested]
+	fw.mu.Unlock()
+	if !registered {
+		t.Fatal("descendant not registered again")
+	}
+}

@@ -15,9 +15,17 @@ import { getState, setState } from "./state.js";
 import { initHeader, refreshStatus, setPaused } from "./features/header.js";
 import { initViews, setView } from "./features/views.js";
 import { initFiles, refreshFiles, selectFile } from "./features/files.js";
-import { initAgents, loadAgents, liveRefreshAgents } from "./features/agents.js";
+import {
+  initAgents,
+  loadAgents,
+  liveRefreshAgents,
+} from "./features/agents.js";
 import { initSettings } from "./features/settings.js";
-import { initActivity, activityOpen, refreshJournal } from "./features/activity.js";
+import {
+  initActivity,
+  activityOpen,
+  refreshJournal,
+} from "./features/activity.js";
 
 const REFRESH_MS = 15000;
 const LIVE_COALESCE_MS = 400;
@@ -30,7 +38,9 @@ async function init() {
   initOverlays();
 
   // El cambio de idioma sincroniza el store para que las vistas se repinten.
-  document.addEventListener("i18n:changed", () => setState({ lang: I18N.lang() }));
+  document.addEventListener("i18n:changed", () =>
+    setState({ lang: I18N.lang() }),
+  );
 
   // Features.
   initHeader();
@@ -65,7 +75,8 @@ async function init() {
 
 // applyRoute reconcilia el estado con una ruta (sin volver a tocar el hash).
 function applyRoute(route) {
-  if (getState().view !== route.view) setView(route.view, { updateHash: false });
+  if (getState().view !== route.view)
+    setView(route.view, { updateHash: false });
   if (route.path && route.path !== getState().selectedPath) {
     selectFile(route.path, { updateHash: false });
   }
@@ -79,6 +90,7 @@ function initAutoRefresh() {
     refreshFiles();
     refreshStatus();
     if (activityOpen()) refreshJournal();
+    liveRefreshAgents();
   }, REFRESH_MS);
 }
 
@@ -92,7 +104,8 @@ function scheduleLiveRefresh() {
     refreshStatus();
     if (activityOpen()) refreshJournal();
     const sel = getState().selectedPath;
-    if (sel) selectFile(sel, { updateHash: false }).catch(() => {});
+    if (sel)
+      selectFile(sel, { updateHash: false, preserve: true }).catch(() => {});
     liveRefreshAgents();
   }, LIVE_COALESCE_MS);
 }

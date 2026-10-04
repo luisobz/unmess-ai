@@ -13,14 +13,21 @@ export function parseHash() {
   if (h.startsWith("#/agents")) return { view: "agents", path: null };
   const prefix = "#/file/";
   if (h.startsWith(prefix)) {
-    return { view: "files", path: decodeURI(h.slice(prefix.length)) };
+    try {
+      return {
+        view: "files",
+        path: decodeURIComponent(h.slice(prefix.length)),
+      };
+    } catch (_) {
+      return { view: "files", path: null };
+    }
   }
   return { view: "files", path: null };
 }
 
 // fileHash construye el hash de un fichero.
 export function fileHash(path) {
-  return "#/file/" + encodeURI(path);
+  return "#/file/" + encodeURIComponent(path);
 }
 
 // navigate escribe una ruta en la URL. push:false usa replaceState para no

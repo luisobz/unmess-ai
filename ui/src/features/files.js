@@ -13,7 +13,13 @@ import { openOverlay, closeOverlay } from "../core/overlay.js";
 import { fileHash, navigate } from "../core/router.js";
 import { watchKeys } from "../core/store.js";
 import { store, getState, setState } from "../state.js";
-import { badge, deletedBadge, agentChip, viewerMessage, renderDiffLines } from "../components/common.js";
+import {
+  badge,
+  deletedBadge,
+  agentChip,
+  viewerMessage,
+  renderDiffLines,
+} from "../components/common.js";
 import { refreshStatus } from "./header.js";
 
 const AI_FILTER_CYCLE = { all: "only", only: "hide", hide: "all" };
@@ -37,21 +43,41 @@ export function initFiles() {
   $("untrack-confirm").addEventListener("click", doUntrack);
   $("btn-copy-path").addEventListener("click", copySelectedPath);
 
-  watchKeys(store, ["files", "aiFilter", "selectedPath", "agentsById", "lang"], renderFileList);
+  watchKeys(
+    store,
+    ["files", "aiFilter", "selectedPath", "agentsById", "lang"],
+    renderFileList,
+  );
   watchKeys(store, ["aiFilter", "lang"], renderAiToggle);
-  watchKeys(store, ["selectedPath", "deleted", "versions", "selectedVersion", "lang"], renderFilePanel);
+  watchKeys(
+    store,
+    ["selectedPath", "deleted", "versions", "selectedVersion", "lang"],
+    renderFilePanel,
+  );
   watchKeys(store, ["mode", "lang"], renderModeToggle);
-  watchKeys(store, ["selectedPath", "selectedVersion", "compareTo", "mode"], renderViewer);
+  watchKeys(
+    store,
+    ["selectedPath", "selectedVersion", "compareTo", "mode"],
+    renderViewer,
+  );
 }
 
 // --- acciones: lista ---
 
 // refreshFiles recarga la lista aplicando búsqueda y filtro del servidor.
+let listRequest = 0;
+let fileRequest = 0;
+let viewerRequest = 0;
+
 export async function refreshFiles() {
+  const request = ++listRequest;
   try {
-    const qs = new URLSearchParams({ q: getState().query, filter: getState().filter });
+    const qs = new URLSearchParams({
+      q: getState().query,
+      filter: getState().filter,
+    });
     const files = await apiJSON("/api/files?" + qs.toString());
-    setState({ files });
+    if (request === listRequest) setState({ files });
   } catch (e) {
     toast(e.message, "error");
   }
@@ -85,7 +111,11 @@ function visibleFiles() {
 
 // selectFile abre un fichero: carga sus versiones y fija la selección por defecto
 // (versión más reciente, comparada con la anterior).
-export async function selectFile(path, { updateHash = true } = {}) {
+export async function selectFile(
+  path,
+  { updateHash = true, preserve = false } = {},
+) {
+  const request = ++fileRequest;
   let versions;
   try {
     versions = await apiJSON("/api/versions?path=" + encodeURIComponent(path));
@@ -93,20 +123,34 @@ export async function selectFile(path, { updateHash = true } = {}) {
     toast(e.message, "error");
     return;
   }
+  if (request !== fileRequest) return;
   const f = getState().files.find((x) => x.path === path);
-  const selectedVersion = versions.length ? versions[0].name : null;
+  const previous = getState();
+  const keep =
+    preserve &&
+    previous.selectedPath === path &&
+    versions.some((v) => v.name === previous.selectedVersion);
+  const selectedVersion = keep
+    ? previous.selectedVersion
+    : versions.length
+      ? versions[0].name
+      : null;
   setState({
     selectedPath: path,
     deleted: f ? f.deleted : false,
     versions,
     selectedVersion,
-    compareTo: defaultCompareTo(versions, selectedVersion),
+    compareTo: keep
+      ? previous.compareTo
+      : defaultCompareTo(versions, selectedVersion),
   });
   if (updateHash) navigate(fileHash(path));
 }
 
 // clearSelection vuelve al estado sin fichero seleccionado (tras olvidar uno).
 export function clearSelection() {
+  fileRequest++;
+  viewerRequest++;
   setState({ selectedPath: null, versions: [], selectedVersion: null });
   if (location.hash) navigate("", { push: false });
 }
@@ -121,7 +165,10 @@ function defaultCompareTo(versions, selectedVersion) {
 
 function pickVersion(name) {
   const versions = getState().versions;
-  setState({ selectedVersion: name, compareTo: defaultCompareTo(versions, name) });
+  setState({
+    selectedVersion: name,
+    compareTo: defaultCompareTo(versions, name),
+  });
 }
 
 function setMode(mode) {
@@ -154,7 +201,10 @@ function fileItem(f, selected, byId) {
     "div",
     { class: "fi-meta" },
     h("span", {
-      text: f.versions + " " + (f.versions === 1 ? t("version_singular") : t("version_plural")),
+      text:
+        f.versions +
+        " " +
+        (f.versions === 1 ? t("version_singular") : t("version_plural")),
     }),
     h("span", { text: fmtDate(f.last_version_at) }),
     f.agent && agentChip(byId[f.agent], f.agent),
@@ -181,7 +231,12 @@ function renderAiToggle() {
   const aiFilter = getState().aiFilter;
   btn.classList.toggle("state-only", aiFilter === "only");
   btn.classList.toggle("state-hide", aiFilter === "hide");
-  const key = aiFilter === "only" ? "ai_filter_only" : aiFilter === "hide" ? "ai_filter_hide" : "ai_filter_all";
+  const key =
+    aiFilter === "only"
+      ? "ai_filter_only"
+      : aiFilter === "hide"
+        ? "ai_filter_hide"
+        : "ai_filter_all";
   const label = t(key);
   btn.title = label;
   btn.setAttribute("aria-label", label);
@@ -225,13 +280,19 @@ function versionItem(v, i, selectedVersion) {
   const li = h(
     "li",
     {
-      class: "version-item" + (current ? " current" : "") + (v.name === selectedVersion ? " selected" : ""),
+      class:
+        "version-item" +
+        (current ? " current" : "") +
+        (v.name === selectedVersion ? " selected" : ""),
       role: "button",
       tabindex: "0",
       onClick: () => pickVersion(v.name),
     },
     name,
-    h("div", { class: "v-meta", text: fmtDate(v.ts) + " · " + fmtBytes(v.size) }),
+    h("div", {
+      class: "v-meta",
+      text: fmtDate(v.ts) + " · " + fmtBytes(v.size),
+    }),
   );
   activateOnEnter(li, () => pickVersion(v.name));
   return li;
@@ -242,7 +303,11 @@ function renderCompareOptions() {
   const sel = $("compare-to");
   mount(
     sel,
-    h("option", { value: "current", text: t("compare_current"), disabled: deleted }),
+    h("option", {
+      value: "current",
+      text: t("compare_current"),
+      disabled: deleted,
+    }),
     versions
       .filter((v) => v.name !== selectedVersion)
       .map((v) => h("option", { value: v.name, text: v.name })),
@@ -255,7 +320,8 @@ function renderModeToggle() {
   const mode = getState().mode;
   toggleTab($("mode-diff"), mode === "diff");
   toggleTab($("mode-content"), mode === "content");
-  $("compare-controls").style.visibility = mode === "diff" ? "visible" : "hidden";
+  $("compare-controls").style.visibility =
+    mode === "diff" ? "visible" : "hidden";
 }
 
 function toggleTab(btn, active) {
@@ -265,61 +331,92 @@ function toggleTab(btn, active) {
 
 // renderViewer pinta el diff o el contenido de la versión seleccionada.
 async function renderViewer() {
+  const request = ++viewerRequest;
   const viewer = $("viewer");
-  const { selectedVersion, mode } = getState();
+  const { selectedPath, selectedVersion, compareTo, mode } = getState();
   if (!selectedVersion) {
     viewerMessage(viewer, t("no_versions"));
     return;
   }
-  if (mode === "content") await renderContent(viewer);
-  else await renderDiff(viewer);
-}
-
-async function renderContent(viewer) {
-  const { selectedPath, selectedVersion } = getState();
-  const qs = new URLSearchParams({ path: selectedPath, version: selectedVersion });
-  const res = await api("/api/content?" + qs.toString());
-  if (res.status === 415) return viewerMessage(viewer, t("binary_content"));
-  if (!res.ok) return viewerMessage(viewer, t("load_content_error"));
-  viewer.replaceChildren(h("pre", { text: await res.text() }));
-}
-
-async function renderDiff(viewer) {
-  const { selectedPath, selectedVersion, compareTo } = getState();
-  if (!compareTo) {
-    // Primera versión: no hay anterior; caemos a mostrar el contenido.
+  if (mode === "diff" && !compareTo) {
     setMode("content");
     return;
   }
-  const qs = new URLSearchParams({ path: selectedPath, from: compareTo, to: selectedVersion });
-  const res = await api("/api/diff?" + qs.toString());
-  if (!res.ok) return viewerMessage(viewer, t("load_diff_error"));
-  const text = await res.text();
-  if (text.trim() === "binary") return viewerMessage(viewer, t("binary_diff"));
-  if (text.trim() === "") return viewerMessage(viewer, t("no_differences"));
-  viewer.replaceChildren(renderDiffLines(text));
+  viewerMessage(viewer, t("loading"));
+  try {
+    const qs =
+      mode === "content"
+        ? new URLSearchParams({ path: selectedPath, version: selectedVersion })
+        : new URLSearchParams({
+            path: selectedPath,
+            from: compareTo,
+            to: selectedVersion,
+          });
+    const res = await api(
+      (mode === "content" ? "/api/content?" : "/api/diff?") + qs,
+    );
+    const text = await res.text();
+    if (request !== viewerRequest) return;
+    if (res.status === 415 || (mode === "diff" && text.trim() === "binary")) {
+      viewerMessage(viewer, t("binary_content"));
+      return;
+    }
+    if (!res.ok) {
+      viewerMessage(
+        viewer,
+        t(mode === "content" ? "load_content_error" : "load_diff_error"),
+      );
+      return;
+    }
+    if (mode === "content") viewer.replaceChildren(h("pre", { text }));
+    else if (!text.trim()) viewerMessage(viewer, t("no_differences"));
+    else viewer.replaceChildren(renderDiffLines(text));
+  } catch (e) {
+    if (request === viewerRequest)
+      viewerMessage(viewer, t("load_content_error"));
+  }
 }
 
 // --- restaurar ---
 
+let restoreContext = null;
+let untrackContext = null;
+
 function openRestore() {
   const { selectedVersion, selectedPath } = getState();
   if (!selectedVersion) return;
-  $("restore-desc").textContent = t("restore_desc", { path: selectedPath, version: selectedVersion });
+  restoreContext = { selectedPath, selectedVersion };
+  $("restore-desc").textContent = t("restore_desc", {
+    path: selectedPath,
+    version: selectedVersion,
+  });
   openOverlay("restore");
 }
 
 async function doRestore() {
-  const { selectedPath, selectedVersion } = getState();
+  if (!restoreContext) return;
+  const { selectedPath, selectedVersion } = restoreContext;
+  const btn = $("restore-confirm");
+  if (btn.disabled) return;
+  btn.disabled = true;
   try {
-    const j = await apiJSON("/api/restore", jsonBody("POST", { path: selectedPath, version: selectedVersion }));
+    const j = await apiJSON(
+      "/api/restore",
+      jsonBody("POST", { path: selectedPath, version: selectedVersion }),
+    );
     closeOverlay("restore");
-    toast(j.safety_version ? t("restored_with_safety", { version: j.safety_version }) : t("restored_ok"));
+    toast(
+      j.safety_version
+        ? t("restored_with_safety", { version: j.safety_version })
+        : t("restored_ok"),
+    );
     await refreshFiles();
     await selectFile(selectedPath, { updateHash: false });
     await refreshStatus();
   } catch (e) {
     toast(e.message, "error");
+  } finally {
+    btn.disabled = false;
   }
 }
 
@@ -328,12 +425,14 @@ async function doRestore() {
 function openUntrack() {
   const path = getState().selectedPath;
   if (!path) return;
+  untrackContext = path;
   $("untrack-desc").textContent = t("untrack_desc", { path });
   openOverlay("untrack");
 }
 
 async function doUntrack() {
-  const path = getState().selectedPath;
+  const path = untrackContext;
+  if (!path) return;
   try {
     const j = await apiJSON("/api/forget", jsonBody("POST", { path }));
     closeOverlay("untrack");

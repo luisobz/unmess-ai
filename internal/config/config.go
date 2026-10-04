@@ -5,7 +5,9 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -242,6 +244,23 @@ func ExpandUser(p string) (string, error) {
 
 // Validate comprueba invariantes mínimas del esquema.
 func (c *Config) Validate() error {
+	if strings.TrimSpace(c.Prefix) == "" {
+		return fmt.Errorf("prefix no puede estar vacío")
+	}
+	if len(c.IncludedPaths) == 0 {
+		return fmt.Errorf("included_paths debe contener al menos una ruta")
+	}
+	for _, p := range c.IncludedPaths {
+		if strings.TrimSpace(p) == "" {
+			return fmt.Errorf("included_paths contiene una ruta vacía")
+		}
+	}
+	if int64(c.MaxFileSizeMB) > math.MaxInt64/(1024*1024) {
+		return fmt.Errorf("max_file_size_mb fuera de rango")
+	}
+	if c.Retention.MaxVersions < 0 || c.Retention.MaxAgeDays < 0 || c.Retention.DeletedAgeDays < 0 {
+		return fmt.Errorf("la retención no puede ser negativa")
+	}
 	if c.DebounceSeconds < 1 {
 		return fmt.Errorf("debounce_seconds debe ser >= 1")
 	}
@@ -296,7 +315,8 @@ func (c *Config) render() string {
 }
 
 func tomlString(s string) string {
-	return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(s) + `"`
+	data, _ := json.Marshal(s)
+	return string(data)
 }
 
 func tomlStringArray(in []string) string {

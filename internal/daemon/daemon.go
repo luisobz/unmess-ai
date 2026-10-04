@@ -134,15 +134,10 @@ func Run(ctx context.Context, cfg *config.Config, opts Options) error {
 		flushCh:  make(chan flushRequest),
 	}
 
-	if opts.Hook != nil {
-		if err := opts.Hook(ctx, rt); err != nil {
-			return fmt.Errorf("hook de arranque: %w", err)
-		}
-	}
-
 	snap := *cfg
 	for {
 		next, err := rt.runPipeline(ctx, snap, opts, prefix)
+		opts.Hook = nil
 		if err != nil {
 			return err
 		}
@@ -181,6 +176,7 @@ func (rt *Runtime) runPipeline(ctx context.Context, cfg config.Config, opts Opti
 	}
 	defer w.Close()
 
+	watched := 0
 	for _, root := range included {
 		if _, serr := os.Stat(root); serr != nil {
 			logger.Printf("aviso: ruta incluida no accesible %q: %v", root, serr)
@@ -188,9 +184,14 @@ func (rt *Runtime) runPipeline(ctx context.Context, cfg config.Config, opts Opti
 		}
 		if err := w.Add(root); err != nil {
 			logger.Printf("aviso: no se pudo vigilar %q: %v", root, err)
+			continue
 		}
+		watched++
 	}
-	logger.Printf("vigilando %d ruta(s); store en %s", len(included), prefix)
+	if watched == 0 {
+		return nil, fmt.Errorf("ningún directorio configurado se puede vigilar")
+	}
+	logger.Printf("vigilando %d ruta(s); store en %s", watched, prefix)
 
 	delay := opts.Debounce
 	if delay <= 0 {
@@ -259,6 +260,13 @@ func (rt *Runtime) runPipeline(ctx context.Context, cfg config.Config, opts Opti
 		rt.processFlush(keys, flt, gi, st, logger)
 	}
 
+	// Publish readiness only after the watcher has registered the roots.
+	if opts.Hook != nil {
+		if err := opts.Hook(ctx, rt); err != nil {
+			return nil, fmt.Errorf("hook de arranque: %w", err)
+		}
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -292,7 +300,13 @@ func (rt *Runtime) runPipeline(ctx context.Context, cfg config.Config, opts Opti
 				deb.Add(ev.Path, time.Now())
 				rearm()
 			}
-			// OpRemove/OpRename no generan versiones (el historial permanece).
+			// Preserve observed absence time; old backups must not be purged
+			// immediately merely because an old file was deleted today.
+			if ev.Op == watcher.OpRemove || ev.Op == watcher.OpRename {
+				if err := st.MarkDeleted(ev.Path, time.Now()); err != nil {
+					logger.Printf("registrando ausencia: %v", err)
+				}
+			}
 
 		case werr, ok := <-w.Errors():
 			if ok && werr != nil {

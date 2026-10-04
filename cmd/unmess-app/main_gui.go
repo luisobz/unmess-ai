@@ -16,6 +16,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/url"
 	"os/exec"
 	"sync/atomic"
 	"time"
@@ -57,7 +58,7 @@ func main() {
 	}
 
 	// Aseguramos un daemon en marcha y obtenemos un cliente de su API local.
-	client, spawned, err := ensureDaemon(cfg.UI.Port)
+	client, spawned, err := ensureDaemon(cfg.UI.Port, cfg.Path())
 	if err != nil {
 		log.Fatalf("unmess-app: %v", err)
 	}
@@ -94,7 +95,7 @@ func (a *appState) urlFor(rel string) string {
 	if rel == "" {
 		return a.client.baseURL + "/?app=1"
 	}
-	return a.client.baseURL + "/?app=1#/file/" + rel
+	return a.client.baseURL + "/?app=1#/file/" + url.PathEscape(rel)
 }
 
 func newAppState(client *daemonClient, spawned *exec.Cmd, background bool) *appState {
