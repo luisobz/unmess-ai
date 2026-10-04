@@ -58,6 +58,9 @@ jobs:
 
   ui:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      UNMESSAI_TEST_BROWSER: chrome
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
@@ -75,8 +78,9 @@ jobs:
         working-directory: ui
       - run: pnpm test:unit
         working-directory: ui
-      - run: pnpm exec playwright install --with-deps chromium
-        working-directory: ui
+      # The runner already includes Chrome and its system dependencies.
+      # Use the same browser channel as local QA without redundant downloads.
+      - run: google-chrome --version
       - run: pnpm test
         working-directory: ui
       - uses: actions/upload-artifact@v7

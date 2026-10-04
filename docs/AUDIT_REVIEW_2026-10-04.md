@@ -64,7 +64,7 @@ servicios de hosting o DNS.
 - Compilación local de la app Windows, de la app Linux GTK3 y de daemon/CLI
   para macOS ARM64. La ejecución de la app nativa y los instaladores Windows/macOS
   no se han comprobado en escritorios de esos sistemas.
-- CI incorpora pruebas de navegador sobre Ubuntu 24.04 y conserva resultados
+- CI incorpora pruebas con el Chrome instalado en el runner Ubuntu 24.04 y conserva resultados
   y capturas como artefactos. Los workflows de release no se han ejecutado.
 
 ## Límites y próximos pasos
