@@ -12,6 +12,9 @@ on:
       - 'landing-v*'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: landing-deploy-${{ github.ref }}
   cancel-in-progress: false

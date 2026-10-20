@@ -14,12 +14,14 @@
     "check": "astro check"
   },
   "dependencies": {
-    "@astrojs/check": "^0.9.9",
-    "@astrojs/sitemap": "^3.7.3",
-    "astro": "^7.0.7",
-    "typescript": "^5.9.3"
+    "@astrojs/check": "^0.9.11",
+    "@astrojs/sitemap": "^3.7.4",
+    "astro": "^7.4.1",
+    "typescript": "^6.0.3"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }
