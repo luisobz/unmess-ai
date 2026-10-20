@@ -267,6 +267,9 @@ func (s *Store) VersionContent(relPath, name string) ([]byte, error) {
 	if !safeVersionName(name) {
 		return nil, fmt.Errorf("nombre de versión inválido")
 	}
+	if !filepath.IsLocal(filepath.FromSlash(filepath.Join(relPath, name))) {
+		return nil, ErrUnsafePath
+	}
 	dir := s.versionDir(relPath)
 	if dir == "" {
 		return nil, ErrUnsafePath
@@ -300,6 +303,9 @@ func safeVersionName(name string) bool {
 // permanezca debajo de root y devuelve la ruta canónica. Para destinos nuevos,
 // también resuelve y comprueba todos los componentes padre existentes.
 func safePathUnder(root, relPath string) (string, error) {
+	if !filepath.IsLocal(filepath.FromSlash(relPath)) {
+		return "", ErrUnsafePath
+	}
 	rel, err := cleanRelativePath(relPath)
 	if err != nil {
 		return "", err
@@ -329,6 +335,9 @@ func cleanRelativePath(relPath string) (string, error) {
 		return "", ErrUnsafePath
 	}
 	rel := strings.ReplaceAll(filepath.ToSlash(relPath), `\`, `/`)
+	if !filepath.IsLocal(filepath.FromSlash(rel)) {
+		return "", ErrUnsafePath
+	}
 	cleaned := path.Clean(rel)
 	if cleaned == "." || cleaned == ".." || path.IsAbs(cleaned) || strings.HasPrefix(cleaned, "../") {
 		return "", ErrUnsafePath
