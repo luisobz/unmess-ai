@@ -72,7 +72,7 @@ unmessai/
 
 | Requisito | Versión | Notas |
 |---|---|---|
-| Go | 1.24 o superior | Compila daemon, CLI y UI embebida en cualquier SO. |
+| Go | 1.25 o superior | Compila daemon, CLI y UI embebida en cualquier SO. |
 | git | cualquiera | Opcional en runtime: activa la exclusión gitignore-aware. Si no está instalado, la función se desactiva de forma automática. |
 
 Dependencias Go principales (se resuelven con `go build`): `BurntSushi/toml`,

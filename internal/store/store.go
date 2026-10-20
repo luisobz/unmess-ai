@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -146,25 +147,32 @@ func (s *Store) WriteVersion(absPath string, ts time.Time) (VersionResult, error
 	if err != nil {
 		return VersionResult{}, err
 	}
-	src, err := s.ResolveOriginalPath(relPath)
+	relPath, err = cleanRelativePath(relPath)
 	if err != nil {
 		return VersionResult{}, err
 	}
-	ext := filepath.Ext(absPath)
-	dir := s.versionDir(relPath)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return VersionResult{}, fmt.Errorf("creando directorio de versiones: %w", err)
+	if err := os.MkdirAll(s.StoreDir(), 0755); err != nil {
+		return VersionResult{}, err
 	}
-	name := VersionName(ts, ext)
-	dst := filepath.Join(dir, name)
-
-	if err := copyAtomic(src, dst); err != nil {
+	source, err := os.OpenRoot(s.baseDir)
+	if err != nil {
+		return VersionResult{}, err
+	}
+	defer source.Close()
+	destination, err := os.OpenRoot(s.StoreDir())
+	if err != nil {
+		return VersionResult{}, err
+	}
+	defer destination.Close()
+	name := VersionName(ts, filepath.Ext(absPath))
+	dst := filepath.Join(relPath, name)
+	if err := copyAtomicRoot(source, filepath.FromSlash(relPath), destination, dst); err != nil {
 		return VersionResult{}, err
 	}
 	if err := s.journal.Append(ts, relPath); err != nil {
 		return VersionResult{}, fmt.Errorf("registrando en journal: %w", err)
 	}
-	return VersionResult{RelPath: relPath, Name: name, Path: dst}, nil
+	return VersionResult{RelPath: relPath, Name: name, Path: filepath.Join(s.StoreDir(), dst)}, nil
 }
 
 // Restore restaura la versión name del fichero relPath sobre su ruta original.
@@ -172,39 +180,37 @@ func (s *Store) WriteVersion(absPath string, ts time.Time) (VersionResult, error
 // versión (pre-restore safety copy) y devuelve su nombre; en caso contrario
 // devuelve "".
 func (s *Store) Restore(relPath, name string, ts time.Time) (safety string, err error) {
-	dir := s.versionDir(relPath)
-	if dir == "" {
-		return "", ErrUnsafePath
+	relPath, err = cleanRelativePath(relPath)
+	if err != nil {
+		return "", err
 	}
 	if !safeVersionName(name) {
 		return "", fmt.Errorf("nombre de versión inválido")
 	}
-	src, err := safePathUnder(s.StoreDir(), filepath.ToSlash(filepath.Join(relPath, name)))
+	source, err := os.OpenRoot(s.StoreDir())
 	if err != nil {
 		return "", err
 	}
-	if _, err := os.Stat(src); err != nil {
-		return "", fmt.Errorf("versión %q no encontrada: %w", name, err)
-	}
-	dst, err := s.ResolveOriginalPath(relPath)
+	defer source.Close()
+	destination, err := os.OpenRoot(s.baseDir)
 	if err != nil {
 		return "", err
 	}
-
-	if _, err := os.Lstat(dst); err == nil {
-		safety, err = s.writeSafetyCopy(dst, relPath, ts)
+	defer destination.Close()
+	src := filepath.Join(relPath, name)
+	if _, err = source.Stat(src); err != nil {
+		return "", err
+	}
+	if _, err = destination.Stat(filepath.FromSlash(relPath)); err == nil {
+		safety, err = s.writeSafetyCopy(filepath.Join(s.baseDir, relPath), relPath, ts)
 		if err != nil {
 			return "", fmt.Errorf("escribiendo copia de seguridad: %w", err)
 		}
 	} else if !os.IsNotExist(err) {
-		return "", fmt.Errorf("comprobando fichero actual: %w", err)
+		return "", err
 	}
-
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return "", fmt.Errorf("creando directorio destino: %w", err)
-	}
-	if err := copyAtomic(src, dst); err != nil {
-		return "", fmt.Errorf("restaurando versión: %w", err)
+	if err = copyAtomicRoot(source, src, destination, filepath.FromSlash(relPath)); err != nil {
+		return "", err
 	}
 	return safety, nil
 }
@@ -212,30 +218,29 @@ func (s *Store) Restore(relPath, name string, ts time.Time) (safety string, err 
 // ListFiles enumera todos los ficheros versionados (directorios hoja del store
 // que contienen versiones).
 func (s *Store) ListFiles() ([]FileInfo, error) {
-	root := s.StoreDir()
+	root, err := os.OpenRoot(s.StoreDir())
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
 	var files []FileInfo
-	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+	err = fs.WalkDir(root.FS(), ".", func(rel string, d fs.DirEntry, err error) error {
 		if err != nil {
-			if os.IsNotExist(err) {
-				return nil
-			}
 			return err
 		}
 		if !d.IsDir() {
 			return nil
 		}
-		versions, verr := readVersions(path)
-		if verr != nil {
-			return verr
+		versions, err := s.readVersions(rel)
+		if err != nil {
+			return err
 		}
-		if len(versions) == 0 {
-			return nil
+		if len(versions) > 0 {
+			files = append(files, FileInfo{RelPath: filepath.ToSlash(rel), Versions: versions})
 		}
-		rel, rerr := filepath.Rel(root, path)
-		if rerr != nil {
-			return rerr
-		}
-		files = append(files, FileInfo{RelPath: filepath.ToSlash(rel), Versions: versions})
 		return nil
 	})
 	if err != nil {
@@ -250,7 +255,7 @@ func (s *Store) ListVersions(relPath string) ([]VersionInfo, error) {
 	if dir == "" {
 		return nil, ErrUnsafePath
 	}
-	return readVersions(dir)
+	return s.readVersions(relPath)
 }
 
 // HasVersions indica si relPath tiene alguna versión en el store.
@@ -267,18 +272,16 @@ func (s *Store) VersionContent(relPath, name string) ([]byte, error) {
 	if !safeVersionName(name) {
 		return nil, fmt.Errorf("nombre de versión inválido")
 	}
-	if !filepath.IsLocal(filepath.FromSlash(filepath.Join(relPath, name))) {
-		return nil, ErrUnsafePath
-	}
-	dir := s.versionDir(relPath)
-	if dir == "" {
-		return nil, ErrUnsafePath
-	}
-	versionPath, err := safePathUnder(s.StoreDir(), filepath.ToSlash(filepath.Join(relPath, name)))
+	relPath, err := cleanRelativePath(relPath)
 	if err != nil {
 		return nil, err
 	}
-	data, err := os.ReadFile(versionPath)
+	root, err := os.OpenRoot(s.StoreDir())
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	data, err := root.ReadFile(filepath.Join(relPath, name))
 	if err != nil {
 		return nil, fmt.Errorf("leyendo versión %q: %w", name, err)
 	}
@@ -299,34 +302,29 @@ func safeVersionName(name string) bool {
 	return ok
 }
 
-// safePathUnder canoniza root y el destino existente, verifica que el destino
-// permanezca debajo de root y devuelve la ruta canónica. Para destinos nuevos,
-// también resuelve y comprueba todos los componentes padre existentes.
+// safePathUnder validates a relative path through a confined directory handle.
+// Actual reads and mutations must also use os.Root to prevent symlink races.
 func safePathUnder(root, relPath string) (string, error) {
-	if !filepath.IsLocal(filepath.FromSlash(relPath)) {
-		return "", ErrUnsafePath
-	}
 	rel, err := cleanRelativePath(relPath)
 	if err != nil {
 		return "", err
 	}
 	absoluteRoot, err := filepath.Abs(root)
 	if err != nil {
-		return "", fmt.Errorf("resolviendo raíz: %w", err)
+		return "", err
 	}
-	canonicalRoot, err := resolveExistingPath(absoluteRoot)
+	directory, err := os.OpenRoot(absoluteRoot)
 	if err != nil {
-		return "", fmt.Errorf("resolviendo raíz: %w", err)
+		if os.IsNotExist(err) {
+			return filepath.Join(absoluteRoot, filepath.FromSlash(rel)), nil
+		}
+		return "", err
 	}
-	destination, err := resolveExistingPath(filepath.Join(canonicalRoot, filepath.FromSlash(rel)))
-	if err != nil {
-		return "", fmt.Errorf("resolviendo destino: %w", err)
+	defer directory.Close()
+	if _, err = directory.Stat(filepath.FromSlash(rel)); err != nil && !os.IsNotExist(err) {
+		return "", fmt.Errorf("%w: %v", ErrUnsafePath, err)
 	}
-	within, err := filepath.Rel(canonicalRoot, destination)
-	if err != nil || within == ".." || filepath.IsAbs(within) || strings.HasPrefix(within, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("%w: %q", ErrUnsafePath, relPath)
-	}
-	return destination, nil
+	return filepath.Join(absoluteRoot, filepath.FromSlash(rel)), nil
 }
 
 func cleanRelativePath(relPath string) (string, error) {
@@ -352,74 +350,53 @@ func hasWindowsDrivePrefix(relPath string) bool {
 		(relPath[0] >= 'a' && relPath[0] <= 'z')) && relPath[1] == ':'
 }
 
-// resolveExistingPath follows symlinks one component at a time. Once a
-// missing component is reached, the remaining suffix cannot contain an
-// existing symlink and is appended lexically.
-func resolveExistingPath(p string) (string, error) {
-	absolute, err := filepath.Abs(p)
-	if err != nil {
-		return "", err
-	}
-	volume := filepath.VolumeName(absolute)
-	remainder := strings.TrimPrefix(absolute, volume)
-	current := string(filepath.Separator)
-	if volume != "" {
-		current = volume + string(filepath.Separator)
-	}
-	parts := strings.Split(strings.TrimLeft(remainder, string(filepath.Separator)), string(filepath.Separator))
-	for i, part := range parts {
-		if part == "" {
-			continue
-		}
-		candidate := filepath.Join(current, part)
-		info, err := os.Lstat(candidate)
-		if err != nil {
-			if !os.IsNotExist(err) {
-				return "", err
-			}
-			return filepath.Clean(filepath.Join(append([]string{current}, parts[i:]...)...)), nil
-		}
-		if info.Mode()&os.ModeSymlink != 0 {
-			current, err = filepath.EvalSymlinks(candidate)
-			if err != nil {
-				return "", err
-			}
-		} else {
-			current = candidate
-		}
-	}
-	return filepath.Clean(current), nil
-}
-
 // Size devuelve el tamaño total del store en bytes.
 func (s *Store) Size() (int64, error) {
+	root, err := os.OpenRoot(s.StoreDir())
+	if os.IsNotExist(err) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	defer root.Close()
 	var total int64
-	err := filepath.WalkDir(s.StoreDir(), func(path string, d os.DirEntry, err error) error {
+	err = fs.WalkDir(root.FS(), ".", func(rel string, d fs.DirEntry, err error) error {
 		if err != nil {
-			if os.IsNotExist(err) {
-				return nil
-			}
 			return err
 		}
 		if d.IsDir() {
 			return nil
 		}
-		info, ierr := d.Info()
-		if ierr != nil {
-			return ierr
+		info, err := root.Lstat(rel)
+		if err != nil {
+			return err
 		}
 		total += info.Size()
 		return nil
 	})
-	if err != nil {
-		return 0, fmt.Errorf("calculando tamaño del store: %w", err)
-	}
-	return total, nil
+	return total, err
 }
 
 // readVersions lee las versiones de un directorio en orden descendente por ts.
-func readVersions(dir string) ([]VersionInfo, error) {
-	ents, err := os.ReadDir(dir)
+func (s *Store) readVersions(relPath string) ([]VersionInfo, error) {
+	root, err := os.OpenRoot(s.StoreDir())
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	directory, err := root.Open(filepath.FromSlash(relPath))
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer directory.Close()
+	ents, err := directory.ReadDir(-1)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -435,7 +412,7 @@ func readVersions(dir string) ([]VersionInfo, error) {
 		if !ok {
 			continue
 		}
-		info, ierr := e.Info()
+		info, ierr := root.Lstat(filepath.Join(relPath, e.Name()))
 		if ierr != nil {
 			return nil, fmt.Errorf("stat de versión: %w", ierr)
 		}
@@ -443,7 +420,7 @@ func readVersions(dir string) ([]VersionInfo, error) {
 			Name: e.Name(),
 			TS:   ts,
 			Size: info.Size(),
-			Path: filepath.Join(dir, e.Name()),
+			Path: filepath.Join(s.StoreDir(), relPath, e.Name()),
 		})
 	}
 	// Orden descendente: más reciente primero; desempate por nombre.
@@ -501,18 +478,23 @@ func (s *Store) writeSafetyCopy(absPath, relPath string, ts time.Time) (string, 
 		return "", err
 	}
 	if len(versions) > 0 {
-		if same, cerr := filesEqual(absPath, versions[0].Path); cerr == nil && same {
+		if same, cerr := s.originalEqualsVersion(relPath, versions[0].Name); cerr == nil && same {
 			return versions[0].Name, nil
 		}
 	}
 	ext := filepath.Ext(absPath)
+	versionsRoot, err := os.OpenRoot(s.StoreDir())
+	if err != nil {
+		return "", err
+	}
+	defer versionsRoot.Close()
 	sts := ts
 	for i := 0; ; i++ {
 		if i > 10000 {
 			return "", fmt.Errorf("sin nombre libre para la copia de seguridad de %q", relPath)
 		}
 		name := VersionName(sts, ext)
-		if _, serr := os.Lstat(filepath.Join(s.versionDir(relPath), name)); os.IsNotExist(serr) {
+		if _, serr := versionsRoot.Lstat(filepath.Join(relPath, name)); os.IsNotExist(serr) {
 			break
 		}
 		sts = sts.Add(time.Second)
@@ -525,24 +507,23 @@ func (s *Store) writeSafetyCopy(absPath, relPath string, ts time.Time) (string, 
 }
 
 // filesEqual compara el contenido de dos ficheros.
-func filesEqual(a, b string) (bool, error) {
-	ia, err := os.Stat(a)
+func (s *Store) originalEqualsVersion(relPath, name string) (bool, error) {
+	base, err := os.OpenRoot(s.baseDir)
 	if err != nil {
 		return false, err
 	}
-	ib, err := os.Stat(b)
+	defer base.Close()
+	versions, err := os.OpenRoot(s.StoreDir())
 	if err != nil {
 		return false, err
 	}
-	if ia.Size() != ib.Size() {
-		return false, nil
-	}
-	fa, err := os.Open(a)
+	defer versions.Close()
+	fa, err := base.Open(filepath.FromSlash(relPath))
 	if err != nil {
 		return false, err
 	}
 	defer fa.Close()
-	fb, err := os.Open(b)
+	fb, err := versions.Open(filepath.Join(relPath, name))
 	if err != nil {
 		return false, err
 	}
@@ -569,37 +550,4 @@ func filesEqual(a, b string) (bool, error) {
 			return false, eb
 		}
 	}
-}
-
-// copyAtomic copia src a dst escribiendo en un temporal en el mismo directorio y
-// renombrando (atómico dentro del mismo sistema de ficheros).
-func copyAtomic(src, dst string) (err error) {
-	in, err := os.Open(src)
-	if err != nil {
-		return fmt.Errorf("abriendo origen: %w", err)
-	}
-	defer in.Close()
-
-	tmp, err := os.CreateTemp(filepath.Dir(dst), ".tmp-*")
-	if err != nil {
-		return fmt.Errorf("creando temporal: %w", err)
-	}
-	tmpName := tmp.Name()
-	defer func() {
-		if err != nil {
-			_ = os.Remove(tmpName)
-		}
-	}()
-
-	if _, err = io.Copy(tmp, in); err != nil {
-		tmp.Close()
-		return fmt.Errorf("copiando contenido: %w", err)
-	}
-	if err = tmp.Close(); err != nil {
-		return fmt.Errorf("cerrando temporal: %w", err)
-	}
-	if err = os.Rename(tmpName, dst); err != nil {
-		return fmt.Errorf("renombrando temporal: %w", err)
-	}
-	return nil
 }

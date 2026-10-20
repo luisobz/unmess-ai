@@ -61,8 +61,8 @@ type sessionEvent struct {
 	TS      string `json:"ts"`
 	Path    string `json:"path"`
 	Version string `json:"version"`
-	Prev    string `json:"prev,omitempty"` // versión anterior del fichero ("" = primera conocida)
-	First   bool   `json:"first"`          // primera versión conocida del fichero (creación probable)
+	Prev    string `json:"prev,omitempty"`   // versión anterior del fichero ("" = primera conocida)
+	First   bool   `json:"first"`            // primera versión conocida del fichero (creación probable)
 	Prompt  string `json:"prompt,omitempty"` // texto del prompt del usuario al que pertenece esta versión
 }
 
@@ -650,7 +650,7 @@ func classifyRevert(st *store.Store, f store.FileInfo, start, end time.Time) (re
 		}
 	}
 	if priorSize == fi.Size() {
-		cur, cerr := os.ReadFile(abs)
+		cur, cerr := st.ReadOriginal(f.RelPath)
 		prev, perr := st.VersionContent(f.RelPath, item.Prior)
 		if cerr == nil && perr == nil && bytes.Equal(cur, prev) {
 			item.Action = "skip_unchanged"
