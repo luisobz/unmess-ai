@@ -9,7 +9,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -107,12 +109,27 @@ func (s *Store) RelPath(absPath string) (string, error) {
 // OriginalPath devuelve la ruta absoluta en disco del fichero cuya ruta
 // relativa es relPath.
 func (s *Store) OriginalPath(relPath string) string {
-	return filepath.Join(s.baseDir, filepath.FromSlash(relPath))
+	p, err := s.ResolveOriginalPath(relPath)
+	if err != nil {
+		return ""
+	}
+	return p
+}
+
+// ResolveOriginalPath resuelve relPath dentro de baseDir. Los enlaces
+// simbólicos que apuntan fuera de la base se rechazan, también cuando el
+// destino todavía no existe.
+func (s *Store) ResolveOriginalPath(relPath string) (string, error) {
+	return safePathUnder(s.baseDir, relPath)
 }
 
 // versionDir devuelve el directorio del store que aloja las versiones de relPath.
 func (s *Store) versionDir(relPath string) string {
-	return filepath.Join(s.StoreDir(), filepath.FromSlash(relPath))
+	p, err := safePathUnder(s.StoreDir(), relPath)
+	if err != nil {
+		return ""
+	}
+	return p
 }
 
 // VersionName construye el nombre de versión para un fichero con extensión ext
@@ -130,21 +147,32 @@ func (s *Store) WriteVersion(absPath string, ts time.Time) (VersionResult, error
 	if err != nil {
 		return VersionResult{}, err
 	}
-	ext := filepath.Ext(absPath)
-	dir := s.versionDir(relPath)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return VersionResult{}, fmt.Errorf("creando directorio de versiones: %w", err)
+	relPath, err = cleanRelativePath(relPath)
+	if err != nil {
+		return VersionResult{}, err
 	}
-	name := VersionName(ts, ext)
-	dst := filepath.Join(dir, name)
-
-	if err := copyAtomic(absPath, dst); err != nil {
+	if err := os.MkdirAll(s.StoreDir(), 0755); err != nil {
+		return VersionResult{}, err
+	}
+	source, err := os.OpenRoot(s.baseDir)
+	if err != nil {
+		return VersionResult{}, err
+	}
+	defer source.Close()
+	destination, err := os.OpenRoot(s.StoreDir())
+	if err != nil {
+		return VersionResult{}, err
+	}
+	defer destination.Close()
+	name := VersionName(ts, filepath.Ext(absPath))
+	dst := filepath.Join(relPath, name)
+	if err := copyAtomicRoot(source, filepath.FromSlash(relPath), destination, dst); err != nil {
 		return VersionResult{}, err
 	}
 	if err := s.journal.Append(ts, relPath); err != nil {
 		return VersionResult{}, fmt.Errorf("registrando en journal: %w", err)
 	}
-	return VersionResult{RelPath: relPath, Name: name, Path: dst}, nil
+	return VersionResult{RelPath: relPath, Name: name, Path: filepath.Join(s.StoreDir(), dst)}, nil
 }
 
 // Restore restaura la versión name del fichero relPath sobre su ruta original.
@@ -152,26 +180,37 @@ func (s *Store) WriteVersion(absPath string, ts time.Time) (VersionResult, error
 // versión (pre-restore safety copy) y devuelve su nombre; en caso contrario
 // devuelve "".
 func (s *Store) Restore(relPath, name string, ts time.Time) (safety string, err error) {
-	src := filepath.Join(s.versionDir(relPath), name)
-	if _, err := os.Stat(src); err != nil {
-		return "", fmt.Errorf("versión %q no encontrada: %w", name, err)
+	relPath, err = cleanRelativePath(relPath)
+	if err != nil {
+		return "", err
 	}
-	dst := s.OriginalPath(relPath)
-
-	if _, err := os.Lstat(dst); err == nil {
-		safety, err = s.writeSafetyCopy(dst, relPath, ts)
+	if !safeVersionName(name) {
+		return "", fmt.Errorf("nombre de versión inválido")
+	}
+	source, err := os.OpenRoot(s.StoreDir())
+	if err != nil {
+		return "", err
+	}
+	defer source.Close()
+	destination, err := os.OpenRoot(s.baseDir)
+	if err != nil {
+		return "", err
+	}
+	defer destination.Close()
+	src := filepath.Join(relPath, name)
+	if _, err = source.Stat(src); err != nil {
+		return "", err
+	}
+	if _, err = destination.Stat(filepath.FromSlash(relPath)); err == nil {
+		safety, err = s.writeSafetyCopy(filepath.Join(s.baseDir, relPath), relPath, ts)
 		if err != nil {
 			return "", fmt.Errorf("escribiendo copia de seguridad: %w", err)
 		}
 	} else if !os.IsNotExist(err) {
-		return "", fmt.Errorf("comprobando fichero actual: %w", err)
+		return "", err
 	}
-
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return "", fmt.Errorf("creando directorio destino: %w", err)
-	}
-	if err := copyAtomic(src, dst); err != nil {
-		return "", fmt.Errorf("restaurando versión: %w", err)
+	if err = copyAtomicRoot(source, src, destination, filepath.FromSlash(relPath)); err != nil {
+		return "", err
 	}
 	return safety, nil
 }
@@ -179,30 +218,29 @@ func (s *Store) Restore(relPath, name string, ts time.Time) (safety string, err 
 // ListFiles enumera todos los ficheros versionados (directorios hoja del store
 // que contienen versiones).
 func (s *Store) ListFiles() ([]FileInfo, error) {
-	root := s.StoreDir()
+	root, err := os.OpenRoot(s.StoreDir())
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
 	var files []FileInfo
-	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+	err = fs.WalkDir(root.FS(), ".", func(rel string, d fs.DirEntry, err error) error {
 		if err != nil {
-			if os.IsNotExist(err) {
-				return nil
-			}
 			return err
 		}
 		if !d.IsDir() {
 			return nil
 		}
-		versions, verr := readVersions(path)
-		if verr != nil {
-			return verr
+		versions, err := s.readVersions(rel)
+		if err != nil {
+			return err
 		}
-		if len(versions) == 0 {
-			return nil
+		if len(versions) > 0 {
+			files = append(files, FileInfo{RelPath: filepath.ToSlash(rel), Versions: versions})
 		}
-		rel, rerr := filepath.Rel(root, path)
-		if rerr != nil {
-			return rerr
-		}
-		files = append(files, FileInfo{RelPath: filepath.ToSlash(rel), Versions: versions})
 		return nil
 	})
 	if err != nil {
@@ -213,7 +251,11 @@ func (s *Store) ListFiles() ([]FileInfo, error) {
 
 // ListVersions devuelve las versiones de relPath en orden descendente.
 func (s *Store) ListVersions(relPath string) ([]VersionInfo, error) {
-	return readVersions(s.versionDir(relPath))
+	dir := s.versionDir(relPath)
+	if dir == "" {
+		return nil, ErrUnsafePath
+	}
+	return s.readVersions(relPath)
 }
 
 // HasVersions indica si relPath tiene alguna versión en el store.
@@ -227,42 +269,134 @@ func (s *Store) HasVersions(relPath string) (bool, error) {
 
 // VersionContent devuelve el contenido crudo de una versión.
 func (s *Store) VersionContent(relPath, name string) ([]byte, error) {
-	data, err := os.ReadFile(filepath.Join(s.versionDir(relPath), name))
+	if !safeVersionName(name) {
+		return nil, fmt.Errorf("nombre de versión inválido")
+	}
+	relPath, err := cleanRelativePath(relPath)
+	if err != nil {
+		return nil, err
+	}
+	root, err := os.OpenRoot(s.StoreDir())
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	data, err := root.ReadFile(filepath.Join(relPath, name))
 	if err != nil {
 		return nil, fmt.Errorf("leyendo versión %q: %w", name, err)
 	}
 	return data, nil
 }
 
+// ErrUnsafePath indica que una ruta relativa o un enlace simbólico intenta
+// salir de la raíz autorizada.
+var ErrUnsafePath = errors.New("ruta fuera de la raíz autorizada")
+
+// safeVersionName limita los nombres de versión a un único componente con
+// timestamp reconocido, evitando que el nombre complete una ruta.
+func safeVersionName(name string) bool {
+	if name == "" || filepath.Base(name) != name || strings.ContainsAny(name, `/\\`) {
+		return false
+	}
+	_, ok := ParseVersionTime(name)
+	return ok
+}
+
+// safePathUnder validates a relative path through a confined directory handle.
+// Actual reads and mutations must also use os.Root to prevent symlink races.
+func safePathUnder(root, relPath string) (string, error) {
+	rel, err := cleanRelativePath(relPath)
+	if err != nil {
+		return "", err
+	}
+	absoluteRoot, err := filepath.Abs(root)
+	if err != nil {
+		return "", err
+	}
+	directory, err := os.OpenRoot(absoluteRoot)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return filepath.Join(absoluteRoot, filepath.FromSlash(rel)), nil
+		}
+		return "", err
+	}
+	defer directory.Close()
+	if _, err = directory.Stat(filepath.FromSlash(rel)); err != nil && !os.IsNotExist(err) {
+		return "", fmt.Errorf("%w: %v", ErrUnsafePath, err)
+	}
+	return filepath.Join(absoluteRoot, filepath.FromSlash(rel)), nil
+}
+
+func cleanRelativePath(relPath string) (string, error) {
+	if relPath == "" || filepath.IsAbs(relPath) || filepath.VolumeName(relPath) != "" ||
+		strings.HasPrefix(relPath, `/`) || strings.HasPrefix(relPath, `\`) || hasWindowsDrivePrefix(relPath) {
+		return "", ErrUnsafePath
+	}
+	rel := strings.ReplaceAll(filepath.ToSlash(relPath), `\`, `/`)
+	if !filepath.IsLocal(filepath.FromSlash(rel)) {
+		return "", ErrUnsafePath
+	}
+	cleaned := path.Clean(rel)
+	if cleaned == "." || cleaned == ".." || path.IsAbs(cleaned) || strings.HasPrefix(cleaned, "../") {
+		return "", ErrUnsafePath
+	}
+	return cleaned, nil
+}
+
+// hasWindowsDrivePrefix also rejects drive-relative paths on non-Windows hosts,
+// where filepath.VolumeName does not recognize the Windows volume syntax.
+func hasWindowsDrivePrefix(relPath string) bool {
+	return len(relPath) >= 2 && ((relPath[0] >= 'A' && relPath[0] <= 'Z') ||
+		(relPath[0] >= 'a' && relPath[0] <= 'z')) && relPath[1] == ':'
+}
+
 // Size devuelve el tamaño total del store en bytes.
 func (s *Store) Size() (int64, error) {
+	root, err := os.OpenRoot(s.StoreDir())
+	if os.IsNotExist(err) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	defer root.Close()
 	var total int64
-	err := filepath.WalkDir(s.StoreDir(), func(path string, d os.DirEntry, err error) error {
+	err = fs.WalkDir(root.FS(), ".", func(rel string, d fs.DirEntry, err error) error {
 		if err != nil {
-			if os.IsNotExist(err) {
-				return nil
-			}
 			return err
 		}
 		if d.IsDir() {
 			return nil
 		}
-		info, ierr := d.Info()
-		if ierr != nil {
-			return ierr
+		info, err := root.Lstat(rel)
+		if err != nil {
+			return err
 		}
 		total += info.Size()
 		return nil
 	})
-	if err != nil {
-		return 0, fmt.Errorf("calculando tamaño del store: %w", err)
-	}
-	return total, nil
+	return total, err
 }
 
 // readVersions lee las versiones de un directorio en orden descendente por ts.
-func readVersions(dir string) ([]VersionInfo, error) {
-	ents, err := os.ReadDir(dir)
+func (s *Store) readVersions(relPath string) ([]VersionInfo, error) {
+	root, err := os.OpenRoot(s.StoreDir())
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	directory, err := root.Open(filepath.FromSlash(relPath))
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer directory.Close()
+	ents, err := directory.ReadDir(-1)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -271,14 +405,14 @@ func readVersions(dir string) ([]VersionInfo, error) {
 	}
 	var versions []VersionInfo
 	for _, e := range ents {
-		if e.IsDir() {
+		if e.IsDir() || e.Type()&os.ModeSymlink != 0 {
 			continue
 		}
 		ts, ok := ParseVersionTime(e.Name())
 		if !ok {
 			continue
 		}
-		info, ierr := e.Info()
+		info, ierr := root.Lstat(filepath.Join(relPath, e.Name()))
 		if ierr != nil {
 			return nil, fmt.Errorf("stat de versión: %w", ierr)
 		}
@@ -286,7 +420,7 @@ func readVersions(dir string) ([]VersionInfo, error) {
 			Name: e.Name(),
 			TS:   ts,
 			Size: info.Size(),
-			Path: filepath.Join(dir, e.Name()),
+			Path: filepath.Join(s.StoreDir(), relPath, e.Name()),
 		})
 	}
 	// Orden descendente: más reciente primero; desempate por nombre.
@@ -344,18 +478,23 @@ func (s *Store) writeSafetyCopy(absPath, relPath string, ts time.Time) (string, 
 		return "", err
 	}
 	if len(versions) > 0 {
-		if same, cerr := filesEqual(absPath, versions[0].Path); cerr == nil && same {
+		if same, cerr := s.originalEqualsVersion(relPath, versions[0].Name); cerr == nil && same {
 			return versions[0].Name, nil
 		}
 	}
 	ext := filepath.Ext(absPath)
+	versionsRoot, err := os.OpenRoot(s.StoreDir())
+	if err != nil {
+		return "", err
+	}
+	defer versionsRoot.Close()
 	sts := ts
 	for i := 0; ; i++ {
 		if i > 10000 {
 			return "", fmt.Errorf("sin nombre libre para la copia de seguridad de %q", relPath)
 		}
 		name := VersionName(sts, ext)
-		if _, serr := os.Lstat(filepath.Join(s.versionDir(relPath), name)); os.IsNotExist(serr) {
+		if _, serr := versionsRoot.Lstat(filepath.Join(relPath, name)); os.IsNotExist(serr) {
 			break
 		}
 		sts = sts.Add(time.Second)
@@ -368,24 +507,23 @@ func (s *Store) writeSafetyCopy(absPath, relPath string, ts time.Time) (string, 
 }
 
 // filesEqual compara el contenido de dos ficheros.
-func filesEqual(a, b string) (bool, error) {
-	ia, err := os.Stat(a)
+func (s *Store) originalEqualsVersion(relPath, name string) (bool, error) {
+	base, err := os.OpenRoot(s.baseDir)
 	if err != nil {
 		return false, err
 	}
-	ib, err := os.Stat(b)
+	defer base.Close()
+	versions, err := os.OpenRoot(s.StoreDir())
 	if err != nil {
 		return false, err
 	}
-	if ia.Size() != ib.Size() {
-		return false, nil
-	}
-	fa, err := os.Open(a)
+	defer versions.Close()
+	fa, err := base.Open(filepath.FromSlash(relPath))
 	if err != nil {
 		return false, err
 	}
 	defer fa.Close()
-	fb, err := os.Open(b)
+	fb, err := versions.Open(filepath.Join(relPath, name))
 	if err != nil {
 		return false, err
 	}
@@ -412,37 +550,4 @@ func filesEqual(a, b string) (bool, error) {
 			return false, eb
 		}
 	}
-}
-
-// copyAtomic copia src a dst escribiendo en un temporal en el mismo directorio y
-// renombrando (atómico dentro del mismo sistema de ficheros).
-func copyAtomic(src, dst string) (err error) {
-	in, err := os.Open(src)
-	if err != nil {
-		return fmt.Errorf("abriendo origen: %w", err)
-	}
-	defer in.Close()
-
-	tmp, err := os.CreateTemp(filepath.Dir(dst), ".tmp-*")
-	if err != nil {
-		return fmt.Errorf("creando temporal: %w", err)
-	}
-	tmpName := tmp.Name()
-	defer func() {
-		if err != nil {
-			_ = os.Remove(tmpName)
-		}
-	}()
-
-	if _, err = io.Copy(tmp, in); err != nil {
-		tmp.Close()
-		return fmt.Errorf("copiando contenido: %w", err)
-	}
-	if err = tmp.Close(); err != nil {
-		return fmt.Errorf("cerrando temporal: %w", err)
-	}
-	if err = os.Rename(tmpName, dst); err != nil {
-		return fmt.Errorf("renombrando temporal: %w", err)
-	}
-	return nil
 }

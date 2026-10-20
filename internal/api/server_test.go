@@ -375,6 +375,25 @@ func TestPathTraversal(t *testing.T) {
 	}
 }
 
+func TestContentRejectsSymlinkOutsideBase(t *testing.T) {
+	srv, _, base := newTestServer(t)
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "secret.txt"), []byte("private"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(base, "redirect")); err != nil {
+		t.Fatal(err)
+	}
+
+	rec := do(t, srv, "GET", "/api/content?path=redirect/secret.txt&version=current", reqOpts{token: srv.Token()})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("symlink fuera de base: esperado 400, obtenido %d (%s)", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "private") {
+		t.Fatal("la API devolvió el contenido externo")
+	}
+}
+
 func TestConfigGetPut(t *testing.T) {
 	srv, _, _ := newTestServer(t)
 	// El PUT necesita persistir: fija la ruta de config a un temporal.

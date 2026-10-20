@@ -147,6 +147,25 @@ func TestPrunePurgesOldDeletedEvenWithMinKeep(t *testing.T) {
 	}
 }
 
+func TestPruneDoesNotPurgeHistoryWhenOriginalUsesExternalSymlink(t *testing.T) {
+	s, base := newStore(t)
+	relPath := "redirect/old.txt"
+	versionTS := fixedTS(t, "2020-01-01-00-00")
+	makeVersion(t, s, relPath, versionTS, "history")
+	outside := t.TempDir()
+	if err := os.Symlink(outside, filepath.Join(base, "redirect")); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := s.Prune(retention.Config{DeletedAgeDays: 1}, fixedTS(t, "2026-01-01-00-00"), false)
+	if err == nil {
+		t.Fatal("Prune trató el symlink no confinado como original borrado")
+	}
+	if got := versionCount(t, s, relPath); got != 1 {
+		t.Fatalf("Prune eliminó historial ante ruta insegura: quedan %d versiones", got)
+	}
+}
+
 func TestPruneDeletedNotOldEnoughNotPurged(t *testing.T) {
 	s, _ := newStore(t)
 	now := fixedTS(t, "2026-07-11-12-00")

@@ -8,11 +8,11 @@ framework ni peticiones externas.
 ## Desarrollo
 
 ```sh
-npm install
-npm run dev      # servidor de desarrollo
-npm run build    # genera dist/ (estático)
-npm run preview  # sirve dist/ en local
-npm run check    # astro check (tipos de .astro)
+pnpm install
+pnpm dev      # servidor de desarrollo
+pnpm build    # genera dist/ (estático)
+pnpm preview  # sirve dist/ en local
+pnpm check    # astro check (tipos de .astro)
 ```
 
 El resultado del build en `dist/` es lo que se despliega (GitHub Pages, Netlify,

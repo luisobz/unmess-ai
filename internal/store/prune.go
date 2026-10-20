@@ -2,6 +2,7 @@ package store
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -29,8 +30,10 @@ func (s *Store) Prune(cfg retention.Config, now time.Time, dryRun bool) (PruneSu
 		sum.Examined++
 
 		originalExists := false
-		if _, serr := os.Lstat(s.OriginalPath(f.RelPath)); serr == nil {
+		if _, serr := s.OriginalInfo(f.RelPath); serr == nil {
 			originalExists = true
+		} else if !os.IsNotExist(serr) {
+			return sum, fmt.Errorf("comprobando original %q durante la poda: %w", f.RelPath, serr)
 		}
 
 		versions := make([]retention.Version, len(f.Versions))
@@ -51,7 +54,7 @@ func (s *Store) Prune(cfg retention.Config, now time.Time, dryRun bool) (PruneSu
 				sum.DeletedVersions++
 			}
 			if !dryRun {
-				if rerr := os.RemoveAll(s.versionDir(f.RelPath)); rerr != nil {
+				if rerr := s.removeHistory(f.RelPath); rerr != nil {
 					return sum, fmt.Errorf("purgando %q: %w", f.RelPath, rerr)
 				}
 				s.pruneEmptyParents(f.RelPath)
@@ -64,7 +67,7 @@ func (s *Store) Prune(cfg retention.Config, now time.Time, dryRun bool) (PruneSu
 			sum.FreedBytes += dv.Size
 			if !dryRun {
 				path := filepath.Join(s.versionDir(f.RelPath), dv.Name)
-				if rerr := os.Remove(path); rerr != nil && !os.IsNotExist(rerr) {
+				if rerr := s.removeVersion(f.RelPath, dv.Name); rerr != nil && !os.IsNotExist(rerr) {
 					return sum, fmt.Errorf("borrando versión %q: %w", path, rerr)
 				}
 			}
@@ -85,7 +88,7 @@ func (s *Store) Forget(relPath string) (int64, error) {
 	for _, v := range versions {
 		freed += v.Size
 	}
-	if err := os.RemoveAll(s.versionDir(relPath)); err != nil {
+	if err := s.removeHistory(relPath); err != nil {
 		return 0, fmt.Errorf("olvidando %q: %w", relPath, err)
 	}
 	s.pruneEmptyParents(relPath)
@@ -95,16 +98,61 @@ func (s *Store) Forget(relPath string) (int64, error) {
 // pruneEmptyParents elimina directorios padre que hayan quedado vacíos tras una
 // purga, sin salir nunca del store.
 func (s *Store) pruneEmptyParents(relPath string) {
-	dir := filepath.Dir(s.versionDir(relPath))
-	root := s.StoreDir()
-	for dir != root && len(dir) > len(root) {
-		ents, err := os.ReadDir(dir)
-		if err != nil || len(ents) > 0 {
-			return
-		}
-		if err := os.Remove(dir); err != nil {
-			return
-		}
-		dir = filepath.Dir(dir)
+	root, err := os.OpenRoot(s.StoreDir())
+	if err != nil {
+		return
 	}
+	defer root.Close()
+	rel, err := cleanRelativePath(relPath)
+	if err != nil {
+		return
+	}
+	for dir := filepath.Dir(rel); dir != "."; dir = filepath.Dir(dir) {
+		directory, err := root.Open(dir)
+		if err != nil {
+			return
+		}
+		entries, err := directory.ReadDir(1)
+		directory.Close()
+		if len(entries) > 0 || (err != nil && err != io.EOF) {
+			return
+		}
+		if err := root.Remove(dir); err != nil {
+			return
+		}
+	}
+}
+
+func (s *Store) removeHistory(relPath string) error {
+	rel, err := cleanRelativePath(relPath)
+	if err != nil {
+		return err
+	}
+	root, err := os.OpenRoot(s.StoreDir())
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	return root.RemoveAll(filepath.FromSlash(rel))
+}
+func (s *Store) removeVersion(relPath, name string) error {
+	rel, err := cleanRelativePath(relPath)
+	if err != nil {
+		return err
+	}
+	if !safeVersionName(name) {
+		return ErrUnsafePath
+	}
+	root, err := os.OpenRoot(s.StoreDir())
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	return root.Remove(filepath.Join(rel, name))
 }

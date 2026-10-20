@@ -336,7 +336,13 @@ func (s *Server) handleContent(w http.ResponseWriter, r *http.Request) {
 // version=="current"), junto con el status HTTP a usar si hay error.
 func (s *Server) readVersionData(rel, version string) ([]byte, int, error) {
 	if version == "current" {
-		data, err := os.ReadFile(s.store.OriginalPath(rel))
+		if !filepath.IsLocal(filepath.FromSlash(rel)) {
+			return nil, http.StatusBadRequest, errors.New("ruta fuera de la raíz autorizada")
+		}
+		if _, err := s.store.ResolveOriginalPath(rel); err != nil {
+			return nil, http.StatusBadRequest, err
+		}
+		data, err := s.store.ReadOriginal(rel)
 		if err != nil {
 			if os.IsNotExist(err) {
 				return nil, http.StatusNotFound, err

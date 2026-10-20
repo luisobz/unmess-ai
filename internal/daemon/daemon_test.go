@@ -304,3 +304,29 @@ func TestDaemonFlushAndReload(t *testing.T) {
 		t.Fatal("el daemon no se apagó")
 	}
 }
+
+// A startup hook can publish the runtime immediately. Watchers must already be
+// installed so writes made by the hook (or an API it starts) are not lost.
+func TestStartupHookRunsAfterWatcherReady(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("UNMESSAI_HOME", home)
+	cfg := config.Default()
+	cfg.Prefix = "~/UnmessaiBackups"
+	cfg.IncludedPaths = []string{"~"}
+	cfg.ExcludedPaths = nil
+	cfg.GitignoreAware = false
+	st := store.New(filepath.Join(home, "UnmessaiBackups"), home)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() {
+		done <- Run(ctx, cfg, Options{Logger: log.New(io.Discard, "", 0), Debounce: 20 * time.Millisecond, Hook: func(context.Context, *Runtime) error {
+			return os.WriteFile(filepath.Join(home, "hook.txt"), []byte("first write"), 0600)
+		}})
+	}()
+	testutil.Eventually(t, 3*time.Second, 20*time.Millisecond, func() bool { data, ok := versionedContent(t, st, "hook.txt"); return ok && data == "first write" }, "startup write is versioned")
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}

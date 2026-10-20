@@ -97,9 +97,9 @@ type Options struct {
 	Debounce time.Duration
 	// RetentionInterval sobreescribe el intervalo de poda (por defecto 1 hora).
 	RetentionInterval time.Duration
-	// Hook se invoca una vez el Runtime está listo, antes de entrar en el bucle
-	// de eventos. Aquí se montará el servidor de API. Puede ser nil. Si devuelve
-	// error, el daemon aborta el arranque.
+	// Hook se invoca una vez después de instalar el watcher y antes de entrar en
+	// el bucle de eventos. Aquí se monta el servidor de API. Puede ser nil. Si
+	// devuelve error, el daemon aborta el arranque.
 	Hook func(ctx context.Context, rt *Runtime) error
 }
 
@@ -134,15 +134,15 @@ func Run(ctx context.Context, cfg *config.Config, opts Options) error {
 		flushCh:  make(chan flushRequest),
 	}
 
-	if opts.Hook != nil {
-		if err := opts.Hook(ctx, rt); err != nil {
-			return fmt.Errorf("hook de arranque: %w", err)
-		}
-	}
-
 	snap := *cfg
+	firstPipeline := true
 	for {
-		next, err := rt.runPipeline(ctx, snap, opts, prefix)
+		var hook func(context.Context, *Runtime) error
+		if firstPipeline {
+			hook = opts.Hook
+			firstPipeline = false
+		}
+		next, err := rt.runPipeline(ctx, snap, opts, prefix, hook)
 		if err != nil {
 			return err
 		}
@@ -158,7 +158,7 @@ func Run(ctx context.Context, cfg *config.Config, opts Options) error {
 // runPipeline construye watcher, filtros, debounce y retención a partir de una
 // instantánea de la config y ejecuta el bucle de eventos. Devuelve (nil, nil)
 // en apagado limpio, o la nueva config cuando llega una petición de recarga.
-func (rt *Runtime) runPipeline(ctx context.Context, cfg config.Config, opts Options, prefix string) (*config.Config, error) {
+func (rt *Runtime) runPipeline(ctx context.Context, cfg config.Config, opts Options, prefix string, hook func(context.Context, *Runtime) error) (*config.Config, error) {
 	logger := rt.Logger
 	st := rt.Store
 
@@ -188,6 +188,11 @@ func (rt *Runtime) runPipeline(ctx context.Context, cfg config.Config, opts Opti
 		}
 		if err := w.Add(root); err != nil {
 			logger.Printf("aviso: no se pudo vigilar %q: %v", root, err)
+		}
+	}
+	if hook != nil {
+		if err := hook(ctx, rt); err != nil {
+			return nil, fmt.Errorf("hook de arranque: %w", err)
 		}
 	}
 	logger.Printf("vigilando %d ruta(s); store en %s", len(included), prefix)
