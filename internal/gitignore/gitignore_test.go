@@ -114,3 +114,15 @@ func TestDisabledFilter(t *testing.T) {
 		t.Errorf("filtro deshabilitado no ignora nada: %v", res)
 	}
 }
+
+func TestRepoRootRejectsSymlinkGitMetadata(t *testing.T) {
+	repo := t.TempDir()
+	external := t.TempDir()
+	if err := os.Symlink(external, filepath.Join(repo, ".git")); err != nil {
+		t.Skip(err)
+	}
+	filter := New(true)
+	if got := filter.repoRoot(repo); got == repo {
+		t.Fatal("accepted symlink git metadata")
+	}
+}
