@@ -46,9 +46,18 @@ func Protect(cfg *config.Config, st *store.Store, paths []string, logger *log.Lo
 	flt := newFilter(cfg, prefix, excluded, st.BaseDir())
 	gi := gitignore.New(cfg.GitignoreAware)
 
+	base, err := os.OpenRoot(st.BaseDir())
+	if err != nil {
+		return sum, err
+	}
+	defer base.Close()
 	var candidates []string
 	for _, root := range paths {
-		info, serr := os.Lstat(root)
+		rel, rerr := st.RelPath(root)
+		if rerr != nil {
+			return sum, rerr
+		}
+		info, serr := st.OriginalLstat(rel)
 		if serr != nil {
 			return sum, fmt.Errorf("accediendo a %q: %w", root, serr)
 		}
@@ -58,7 +67,8 @@ func Protect(cfg *config.Config, st *store.Store, paths []string, logger *log.Lo
 			}
 			continue
 		}
-		werr := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+		werr := fs.WalkDir(base.FS(), filepath.ToSlash(rel), func(relative string, d fs.DirEntry, err error) error {
+			p := filepath.Join(st.BaseDir(), filepath.FromSlash(relative))
 			if err != nil {
 				// Directorio o entrada ilegible: se omite sin abortar la pasada.
 				logger.Printf("proteger: aviso: %v", err)

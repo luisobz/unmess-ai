@@ -64,3 +64,21 @@ func copyAtomicRoot(srcRoot *os.Root, src string, dstRoot *os.Root, dst string) 
 	}
 	return dstRoot.Rename(tmpName, dst)
 }
+
+// OriginalLstat preserves the non-following semantics used by watcher filters.
+func (s *Store) OriginalLstat(relPath string) (os.FileInfo, error) {
+	rel := relPath
+	if rel != "." {
+		var err error
+		rel, err = cleanRelativePath(rel)
+		if err != nil {
+			return nil, err
+		}
+	}
+	root, err := os.OpenRoot(s.baseDir)
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	return root.Lstat(filepath.FromSlash(rel))
+}

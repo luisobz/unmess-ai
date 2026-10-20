@@ -75,9 +75,14 @@ func (f *Filter) repoRoot(dir string) string {
 	root := ""
 	for {
 		visited = append(visited, cur)
-		if _, err := os.Stat(filepath.Join(cur, ".git")); err == nil {
-			root = cur
-			break
+		directory, err := os.OpenRoot(cur)
+		if err == nil {
+			info, statErr := directory.Lstat(".git")
+			directory.Close()
+			if statErr == nil && info.Mode()&os.ModeSymlink == 0 {
+				root = cur
+				break
+			}
 		}
 		parent := filepath.Dir(cur)
 		if parent == cur {

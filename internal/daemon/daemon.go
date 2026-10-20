@@ -435,7 +435,11 @@ func (f *filter) rejectCheap(path string, st *store.Store, logger *log.Logger) b
 		return true
 	}
 
-	info, err := os.Lstat(path)
+	rel, rerr := st.RelPath(path)
+	if rerr != nil {
+		return true
+	}
+	info, err := st.OriginalLstat(rel)
 	if err != nil {
 		// El fichero pudo desaparecer entre el evento y el flush.
 		return true

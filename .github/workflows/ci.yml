@@ -18,6 +18,11 @@ jobs:
           go-version-file: go.mod
       - run: go vet ./...
       - run: go test ./...
+      - name: Check Go vulnerabilities (CLI and Windows GUI)
+        run: |
+          GOBIN="$RUNNER_TEMP/go-security-tools" go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+          "$RUNNER_TEMP/go-security-tools/govulncheck" ./...
+          GOOS=windows CGO_ENABLED=0 "$RUNNER_TEMP/go-security-tools/govulncheck" -tags gui ./...
       # Daemon y CLI son Go puro: se compilan cruzado sin CGO para los tres SO.
       # La app nativa (cmd/unmess-app) va tras la etiqueta de build `gui`; sin
       # ella se compila el stub, así que estas compilaciones cruzadas no
@@ -50,6 +55,10 @@ jobs:
             libayatana-appindicator3-dev
       - name: Build unmess-app (gui, gtk3)
         run: go build -tags "gui gtk3" -o dist/unmess-app ./cmd/unmess-app
+      - name: Check Linux GUI vulnerabilities
+        run: |
+          GOBIN="$RUNNER_TEMP/go-security-tools" go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+          "$RUNNER_TEMP/go-security-tools/govulncheck" -tags "gui gtk3" ./cmd/unmess-app
       - name: Build daemon y CLI
         run: |
           go build -o dist/unmessd ./cmd/unmessd
