@@ -173,6 +173,85 @@ func TestRelPathOutsideBase(t *testing.T) {
 	}
 }
 
+func TestOriginalPathsRejectSymlinksOutsideBase(t *testing.T) {
+	s, base := newStore(t)
+	outside := t.TempDir()
+	outsideFile := filepath.Join(outside, "secret.txt")
+	writeFile(t, outsideFile, "outside-original")
+	if err := os.Symlink(outside, filepath.Join(base, "redirect")); err != nil {
+		t.Fatal(err)
+	}
+
+	relPath := "redirect/secret.txt"
+	if got := s.OriginalPath(relPath); got != "" {
+		t.Fatalf("OriginalPath siguió un symlink fuera de baseDir: %q", got)
+	}
+	if _, err := s.ResolveOriginalPath(relPath); err == nil {
+		t.Fatal("ResolveOriginalPath aceptó un destino fuera de baseDir")
+	}
+	if _, err := s.WriteVersion(filepath.Join(base, relPath), fixedTS(t, "2026-07-11-10-30")); err == nil {
+		t.Fatal("WriteVersion versionó un destino fuera de baseDir")
+	}
+
+	// Una versión dentro del store no debe poder restaurarse sobre el destino
+	// externo al que apunta el symlink de la base original.
+	versionName := VersionName(fixedTS(t, "2026-07-11-10-31"), ".txt")
+	versionPath := filepath.Join(s.versionDir(relPath), versionName)
+	if err := os.MkdirAll(filepath.Dir(versionPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(versionPath, []byte("restored-version"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Restore(relPath, versionName, fixedTS(t, "2026-07-11-10-32")); err == nil {
+		t.Fatal("Restore aceptó un destino fuera de baseDir")
+	}
+	got, err := os.ReadFile(outsideFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "outside-original" {
+		t.Fatalf("el destino externo cambió: %q", got)
+	}
+}
+
+func TestCleanRelativePathRejectsVolumeQualifiedPaths(t *testing.T) {
+	for _, relPath := range []string{`C:relative.txt`, `c:\\relative.txt`, `C:/absolute.txt`} {
+		if got, err := cleanRelativePath(relPath); err == nil {
+			t.Errorf("cleanRelativePath(%q) = %q, quería ErrUnsafePath", relPath, got)
+		}
+	}
+}
+
+func TestVersionOperationsRejectSymlinksOutsideStore(t *testing.T) {
+	s, _ := newStore(t)
+	relPath := "docs/agent.txt"
+	name := VersionName(fixedTS(t, "2026-07-11-10-30"), ".txt")
+	outside := filepath.Join(t.TempDir(), "secret.txt")
+	writeFile(t, outside, "outside-version")
+	versionPath := filepath.Join(s.versionDir(relPath), name)
+	if err := os.MkdirAll(filepath.Dir(versionPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, versionPath); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := s.VersionContent(relPath, name); err == nil {
+		t.Fatal("VersionContent leyó un symlink fuera del store")
+	}
+	versions, err := s.ListVersions(relPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(versions) != 0 {
+		t.Fatalf("ListVersions incluyó una versión symlink: %+v", versions)
+	}
+	if _, err := s.Restore(relPath, name, fixedTS(t, "2026-07-11-10-31")); err == nil {
+		t.Fatal("Restore aceptó un symlink fuera del store como versión")
+	}
+}
+
 func TestListVersionsDescending(t *testing.T) {
 	s, base := newStore(t)
 	orig := filepath.Join(base, "a.txt")

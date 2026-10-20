@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -107,12 +108,27 @@ func (s *Store) RelPath(absPath string) (string, error) {
 // OriginalPath devuelve la ruta absoluta en disco del fichero cuya ruta
 // relativa es relPath.
 func (s *Store) OriginalPath(relPath string) string {
-	return filepath.Join(s.baseDir, filepath.FromSlash(relPath))
+	p, err := s.ResolveOriginalPath(relPath)
+	if err != nil {
+		return ""
+	}
+	return p
+}
+
+// ResolveOriginalPath resuelve relPath dentro de baseDir. Los enlaces
+// simbólicos que apuntan fuera de la base se rechazan, también cuando el
+// destino todavía no existe.
+func (s *Store) ResolveOriginalPath(relPath string) (string, error) {
+	return safePathUnder(s.baseDir, relPath)
 }
 
 // versionDir devuelve el directorio del store que aloja las versiones de relPath.
 func (s *Store) versionDir(relPath string) string {
-	return filepath.Join(s.StoreDir(), filepath.FromSlash(relPath))
+	p, err := safePathUnder(s.StoreDir(), relPath)
+	if err != nil {
+		return ""
+	}
+	return p
 }
 
 // VersionName construye el nombre de versión para un fichero con extensión ext
@@ -130,6 +146,10 @@ func (s *Store) WriteVersion(absPath string, ts time.Time) (VersionResult, error
 	if err != nil {
 		return VersionResult{}, err
 	}
+	src, err := s.ResolveOriginalPath(relPath)
+	if err != nil {
+		return VersionResult{}, err
+	}
 	ext := filepath.Ext(absPath)
 	dir := s.versionDir(relPath)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -138,7 +158,7 @@ func (s *Store) WriteVersion(absPath string, ts time.Time) (VersionResult, error
 	name := VersionName(ts, ext)
 	dst := filepath.Join(dir, name)
 
-	if err := copyAtomic(absPath, dst); err != nil {
+	if err := copyAtomic(src, dst); err != nil {
 		return VersionResult{}, err
 	}
 	if err := s.journal.Append(ts, relPath); err != nil {
@@ -152,11 +172,24 @@ func (s *Store) WriteVersion(absPath string, ts time.Time) (VersionResult, error
 // versión (pre-restore safety copy) y devuelve su nombre; en caso contrario
 // devuelve "".
 func (s *Store) Restore(relPath, name string, ts time.Time) (safety string, err error) {
-	src := filepath.Join(s.versionDir(relPath), name)
+	dir := s.versionDir(relPath)
+	if dir == "" {
+		return "", ErrUnsafePath
+	}
+	if !safeVersionName(name) {
+		return "", fmt.Errorf("nombre de versión inválido")
+	}
+	src, err := safePathUnder(s.StoreDir(), filepath.ToSlash(filepath.Join(relPath, name)))
+	if err != nil {
+		return "", err
+	}
 	if _, err := os.Stat(src); err != nil {
 		return "", fmt.Errorf("versión %q no encontrada: %w", name, err)
 	}
-	dst := s.OriginalPath(relPath)
+	dst, err := s.ResolveOriginalPath(relPath)
+	if err != nil {
+		return "", err
+	}
 
 	if _, err := os.Lstat(dst); err == nil {
 		safety, err = s.writeSafetyCopy(dst, relPath, ts)
@@ -213,7 +246,11 @@ func (s *Store) ListFiles() ([]FileInfo, error) {
 
 // ListVersions devuelve las versiones de relPath en orden descendente.
 func (s *Store) ListVersions(relPath string) ([]VersionInfo, error) {
-	return readVersions(s.versionDir(relPath))
+	dir := s.versionDir(relPath)
+	if dir == "" {
+		return nil, ErrUnsafePath
+	}
+	return readVersions(dir)
 }
 
 // HasVersions indica si relPath tiene alguna versión en el store.
@@ -227,11 +264,122 @@ func (s *Store) HasVersions(relPath string) (bool, error) {
 
 // VersionContent devuelve el contenido crudo de una versión.
 func (s *Store) VersionContent(relPath, name string) ([]byte, error) {
-	data, err := os.ReadFile(filepath.Join(s.versionDir(relPath), name))
+	if !safeVersionName(name) {
+		return nil, fmt.Errorf("nombre de versión inválido")
+	}
+	dir := s.versionDir(relPath)
+	if dir == "" {
+		return nil, ErrUnsafePath
+	}
+	versionPath, err := safePathUnder(s.StoreDir(), filepath.ToSlash(filepath.Join(relPath, name)))
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(versionPath)
 	if err != nil {
 		return nil, fmt.Errorf("leyendo versión %q: %w", name, err)
 	}
 	return data, nil
+}
+
+// ErrUnsafePath indica que una ruta relativa o un enlace simbólico intenta
+// salir de la raíz autorizada.
+var ErrUnsafePath = errors.New("ruta fuera de la raíz autorizada")
+
+// safeVersionName limita los nombres de versión a un único componente con
+// timestamp reconocido, evitando que el nombre complete una ruta.
+func safeVersionName(name string) bool {
+	if name == "" || filepath.Base(name) != name || strings.ContainsAny(name, `/\\`) {
+		return false
+	}
+	_, ok := ParseVersionTime(name)
+	return ok
+}
+
+// safePathUnder canoniza root y el destino existente, verifica que el destino
+// permanezca debajo de root y devuelve la ruta canónica. Para destinos nuevos,
+// también resuelve y comprueba todos los componentes padre existentes.
+func safePathUnder(root, relPath string) (string, error) {
+	rel, err := cleanRelativePath(relPath)
+	if err != nil {
+		return "", err
+	}
+	absoluteRoot, err := filepath.Abs(root)
+	if err != nil {
+		return "", fmt.Errorf("resolviendo raíz: %w", err)
+	}
+	canonicalRoot, err := resolveExistingPath(absoluteRoot)
+	if err != nil {
+		return "", fmt.Errorf("resolviendo raíz: %w", err)
+	}
+	destination, err := resolveExistingPath(filepath.Join(canonicalRoot, filepath.FromSlash(rel)))
+	if err != nil {
+		return "", fmt.Errorf("resolviendo destino: %w", err)
+	}
+	within, err := filepath.Rel(canonicalRoot, destination)
+	if err != nil || within == ".." || filepath.IsAbs(within) || strings.HasPrefix(within, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("%w: %q", ErrUnsafePath, relPath)
+	}
+	return destination, nil
+}
+
+func cleanRelativePath(relPath string) (string, error) {
+	if relPath == "" || filepath.IsAbs(relPath) || filepath.VolumeName(relPath) != "" ||
+		strings.HasPrefix(relPath, `/`) || strings.HasPrefix(relPath, `\`) || hasWindowsDrivePrefix(relPath) {
+		return "", ErrUnsafePath
+	}
+	rel := strings.ReplaceAll(filepath.ToSlash(relPath), `\`, `/`)
+	cleaned := path.Clean(rel)
+	if cleaned == "." || cleaned == ".." || path.IsAbs(cleaned) || strings.HasPrefix(cleaned, "../") {
+		return "", ErrUnsafePath
+	}
+	return cleaned, nil
+}
+
+// hasWindowsDrivePrefix also rejects drive-relative paths on non-Windows hosts,
+// where filepath.VolumeName does not recognize the Windows volume syntax.
+func hasWindowsDrivePrefix(relPath string) bool {
+	return len(relPath) >= 2 && ((relPath[0] >= 'A' && relPath[0] <= 'Z') ||
+		(relPath[0] >= 'a' && relPath[0] <= 'z')) && relPath[1] == ':'
+}
+
+// resolveExistingPath follows symlinks one component at a time. Once a
+// missing component is reached, the remaining suffix cannot contain an
+// existing symlink and is appended lexically.
+func resolveExistingPath(p string) (string, error) {
+	absolute, err := filepath.Abs(p)
+	if err != nil {
+		return "", err
+	}
+	volume := filepath.VolumeName(absolute)
+	remainder := strings.TrimPrefix(absolute, volume)
+	current := string(filepath.Separator)
+	if volume != "" {
+		current = volume + string(filepath.Separator)
+	}
+	parts := strings.Split(strings.TrimLeft(remainder, string(filepath.Separator)), string(filepath.Separator))
+	for i, part := range parts {
+		if part == "" {
+			continue
+		}
+		candidate := filepath.Join(current, part)
+		info, err := os.Lstat(candidate)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				return "", err
+			}
+			return filepath.Clean(filepath.Join(append([]string{current}, parts[i:]...)...)), nil
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			current, err = filepath.EvalSymlinks(candidate)
+			if err != nil {
+				return "", err
+			}
+		} else {
+			current = candidate
+		}
+	}
+	return filepath.Clean(current), nil
 }
 
 // Size devuelve el tamaño total del store en bytes.
@@ -271,7 +419,7 @@ func readVersions(dir string) ([]VersionInfo, error) {
 	}
 	var versions []VersionInfo
 	for _, e := range ents {
-		if e.IsDir() {
+		if e.IsDir() || e.Type()&os.ModeSymlink != 0 {
 			continue
 		}
 		ts, ok := ParseVersionTime(e.Name())

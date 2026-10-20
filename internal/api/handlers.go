@@ -336,7 +336,11 @@ func (s *Server) handleContent(w http.ResponseWriter, r *http.Request) {
 // version=="current"), junto con el status HTTP a usar si hay error.
 func (s *Server) readVersionData(rel, version string) ([]byte, int, error) {
 	if version == "current" {
-		data, err := os.ReadFile(s.store.OriginalPath(rel))
+		originalPath, err := s.store.ResolveOriginalPath(rel)
+		if err != nil {
+			return nil, http.StatusBadRequest, err
+		}
+		data, err := os.ReadFile(originalPath)
 		if err != nil {
 			if os.IsNotExist(err) {
 				return nil, http.StatusNotFound, err

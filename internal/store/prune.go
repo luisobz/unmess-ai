@@ -28,9 +28,15 @@ func (s *Store) Prune(cfg retention.Config, now time.Time, dryRun bool) (PruneSu
 	for _, f := range files {
 		sum.Examined++
 
+		originalPath, err := s.ResolveOriginalPath(f.RelPath)
+		if err != nil {
+			return sum, fmt.Errorf("resolviendo original %q durante la poda: %w", f.RelPath, err)
+		}
 		originalExists := false
-		if _, serr := os.Lstat(s.OriginalPath(f.RelPath)); serr == nil {
+		if _, serr := os.Lstat(originalPath); serr == nil {
 			originalExists = true
+		} else if !os.IsNotExist(serr) {
+			return sum, fmt.Errorf("comprobando original %q durante la poda: %w", f.RelPath, serr)
 		}
 
 		versions := make([]retention.Version, len(f.Versions))
